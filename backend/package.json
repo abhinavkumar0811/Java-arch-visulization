@@ -1,0 +1,14 @@
+{
+  "name": "jvm-visualizer-backend",
+  "version": "1.0.0",
+  "description": "Java-subset interpreter that emits a step-by-step JVM execution trace (Method Area, Heap, Stack, Threads).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-suite.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
