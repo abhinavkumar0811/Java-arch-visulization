@@ -4,47 +4,44 @@ export default function StepControls({
   index, total, playing, onPrev, onNext, onPlayPause, onReset, onScrub, speed, setSpeed, currentEvent
 }) {
   return (
-    <div className="step-controls">
-      <div className="step-controls-row">
-        <button className="ctrl-btn icon-btn" onClick={onReset} title="Reset (Beginning)">⏮</button>
-        <button className="ctrl-btn icon-btn" onClick={onPrev} title="Previous Step (Left Arrow)" disabled={index <= 0}>◀ Step</button>
-        <button className="ctrl-btn primary-btn" onClick={onPlayPause} title="Play / Pause">
-          {playing ? '⏸ Pause' : '▶ Auto-Play'}
-        </button>
-        <button className="ctrl-btn icon-btn" onClick={onNext} title="Next Step (Right Arrow)" disabled={index >= total - 1}>Step ▶</button>
-        
-        <input
-          className="step-slider"
-          type="range"
-          min={0}
-          max={Math.max(total - 1, 0)}
-          value={index}
-          onChange={(e) => onScrub(Number(e.target.value))}
-        />
-        
-        <span className="step-counter">
-          Step <strong className="highlight">{total ? index + 1 : 0}</strong> of {total}
-        </span>
-
-        <select className="speed-select" value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
-          <option value={1400}>0.5x Speed</option>
-          <option value={700}>1.0x Speed</option>
-          <option value={350}>2.0x Speed</option>
-          <option value={150}>4.0x Speed</option>
-        </select>
-      </div>
-
-      {currentEvent ? (
-        <div className="event-banner">
-          <span className={`event-badge badge-${currentEvent.type}`}>
-            {currentEvent.type}
-          </span>
-          <span className="event-message">{currentEvent.description}</span>
-          {currentEvent.line && <span className="event-line-tag">Line {currentEvent.line}</span>}
+    <div className="step-controls-container" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="step-controls">
+        <div className="step-controls-row">
+          <button className="ctrl-btn" onClick={onReset} title="Reset to start">↻</button>
+          <button className="ctrl-btn" onClick={onPrev} title="Previous step">◀</button>
+          <button className="ctrl-btn primary" onClick={onPlayPause} title="Play / Pause">
+            {playing ? '⏸' : '▶'}
+          </button>
+          <button className="ctrl-btn" onClick={onNext} title="Next step">▶</button>
+          <input
+            className="step-slider"
+            type="range"
+            min={0}
+            max={Math.max(total - 1, 0)}
+            value={index}
+            onChange={(e) => onScrub(Number(e.target.value))}
+          />
+          <span className="step-count">{total ? index + 1 : 0} / {total}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Speed</span>
+            <input 
+              className="step-slider" 
+              type="range" 
+              min={100} 
+              max={2000} 
+              step={100} 
+              value={2100 - speed} 
+              onChange={(e) => setSpeed(2100 - Number(e.target.value))} 
+              style={{ width: '60px' }}
+              title="Playback speed"
+            />
+          </div>
         </div>
-      ) : (
-        <div className="event-banner empty">
-          <span className="event-message muted">Click "Run" to generate execution steps & visualize JVM architecture</span>
+      </div>
+      {currentEvent && (
+        <div className="event-desc" style={{ marginTop: 0, padding: '0 12px' }}>
+          <span className={`event-tag tag-${currentEvent.type}`}>{currentEvent.type}</span>
+          {currentEvent.description}
         </div>
       )}
     </div>

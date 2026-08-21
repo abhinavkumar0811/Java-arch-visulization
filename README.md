@@ -1,102 +1,116 @@
-# JVM Visualizer
+<div align="center">
+  <img src="frontend/public/logo-full.png" alt="JavaFlow Logo" height="100" />
+</div>
 
-A step-by-step visualizer for Java program execution, in the spirit of nodeloop.com's
-event loop visualizer — but for the JVM's execution model: **Method Area, Heap, Call
-Stack, and Threads**.
+# JavaFlow (formerly JVM Visualizer)
 
-You write Java-subset code, click **Run**, and scrub/play through every step: class
-loading, stack frame push/pop, variable declarations, heap allocation, field mutation,
-print statements, branches, and (simplified) thread start/finish.
+<div align="center">
+  <img src="frontend/public/screenshot.png" alt="JavaFlow Screenshot" width="800" />
+</div>
 
-## How it actually works (read this before extending)
+**JavaFlow** is a step-by-step visualizer for actual Java program execution. It gives you a real-time, interactive look into the JVM's memory and execution model: **Heap Memory, Method Area, Call Stack, PC Register, and Threads**.
 
-This is **not** a wrapper around a real JVM. It's a hand-written interpreter
-(`backend/lib/lexer.js` → `parser.js` → `interpreter.js`) for a solid subset of Java:
+Write Java code, hit **Run**, and you can play, pause, or scrub through execution step-by-step. Watch objects get allocated in the Heap, strings populate the String Pool, stack frames push and pop, variables mutate, and threads execute—all with ground-truth accuracy.
 
-- Classes with fields, constructors, methods (single inheritance via `extends`)
-- Primitives, `String`, arithmetic/logical/comparison operators
-- `if/else`, `while`, `for`, recursion
-- `new ClassName(...)` → real heap allocation with an id, like the JVM
-- `obj.method(...)`, `obj.field`, `this`
-- `new Thread(() -> { ... }).start()` — simplified: the spawned thread runs to
-  completion immediately (tagged with its own thread id/call stack) rather than truly
-  interleaving with the caller. This keeps the visualization legible; see "Extending"
-  below for how to do real interleaving.
+---
 
-Every state-changing action emits a trace event with a **full snapshot** of Method
-Area / Heap / all thread call stacks / stdout at that instant. The frontend just steps
-through this array — that's the entire "animation engine."
+## 🚀 In-Depth Features
 
-This gives you a *model-accurate*, genuinely-executing visualizer (like nodeloop.com
-simulates the libuv event-loop model), not a full reimplementation of HotSpot. Real
-bytecode/JIT/GC-algorithm fidelity would mean embedding an actual JVM — see below.
+### 1. Ground-Truth Bytecode Execution (JDI)
+JavaFlow is not a language simulator or a toy interpreter. It utilizes the **Java Debug Interface (JDI)** to attach to a true running JVM instance. This means your code behaves exactly as it would in production: standard library calls work, true object references are tracked, arrays behave natively, and exceptions are real JVM events.
 
-## Project layout
+### 2. Comprehensive Memory Visualization
+*   **Call Stack (JVM Stacks)**: Tracks active frames in real-time. Visually pushes and pops frames upon method entry/exit. Monitors local variables, primitive values, and object references (`@id`), handling method scope correctly.
+*   **Heap Memory**: Visualizes object allocation. Tracks fields and nested references. It even visually flags objects that have become unreachable and are ready for **Garbage Collection (GC)**.
+*   **String Pool**: Demonstrates Java's string interning optimization by capturing String literal allocations in a dedicated pool view, separating them from standard Heap objects.
+*   **Method Area**: Displays dynamically loaded classes and their internal runtime structures (methods, fields, and constructors) along with simulated memory offsets.
+*   **PC Register**: Tracks the currently executing instruction line, providing visual context of the program counter per thread.
+*   **Threads**: Monitors active threads and their execution states (e.g., Running, Suspended), highlighting the currently active thread during execution steps.
 
-```
-backend/    Express API. POST /api/execute { code } -> { trace: [...] }
-  lib/lexer.js         tokenizer
-  lib/parser.js        recursive-descent parser -> AST
-  lib/interpreter.js   tree-walking interpreter + trace emitter
-  test.js              a quick sanity script (node test.js)
+### 3. Interactive Code & Playback Tools
+*   **Timeline Scrubber**: Execution is captured as a fully deterministic trace timeline. You can play, pause, step forward, step backward, or drag the scrubber slider to instantly jump to any moment in the program's lifecycle.
+*   **Bytecode Viewer**: Switch between your source code (`.java`) and the compiled bytecode (`.class`) output (generated via `javap`) to see how high-level Java translates to low-level JVM instructions.
+*   **Console Output**: Standard output (`System.out.print`) is captured and synchronized with the exact step it occurred in the timeline.
 
-frontend/   React + Vite app, styled after the reference screenshot
-  src/App.jsx                 wires everything together, play/pause/scrub loop
-  src/components/*.jsx        Method Area / Heap / Threads&Stack / Metrics / Console / Controls
-  src/examples.js             a few built-in example programs
-```
+### 4. Robust Crash & Exception Handling
+*   If your code throws a runtime exception (e.g., `NullPointerException`), JavaFlow catches it and highlights the crash gracefully in the UI.
+*   **Infinite Loop Protection**: Implements a maximum frame depth (simulating `StackOverflowError` after 50 recursive calls) and a maximum event count to prevent infinite loops from crashing the server, allowing you to visualize exactly *why* and *how* the overflow occurred.
 
-## Running it locally
+### 5. Educational Context
+*   Every visualization panel features an **Info Overlay**. Clicking the `info` icon provides detailed, educational explanations of how that specific component operates within the Java Virtual Machine specification.
 
-```bash
-# terminal 1
-cd backend
-npm install
-npm start        # http://localhost:4000
+---
 
-# terminal 2
-cd frontend
-npm install
-npm run dev       # http://localhost:5173 (proxies /api to :4000 via vite.config.js)
-```
+## 🛠️ Architecture
 
-Open http://localhost:5173, pick an example (or write your own), hit **Run**, then use
-the transport controls under the editor to step, scrub, or auto-play through execution.
+JavaFlow is architected with a strict separation of concerns, communicating via a unified JSON trace format.
 
-`npm run build` in `frontend/` produces a static `dist/` you can deploy anywhere
-(Vercel/Netlify/S3) — just point `VITE_API_BASE` at your deployed backend URL.
+### 1. The Backend (Node.js Express API)
+The backend acts as the orchestrator. When a user submits code via the UI, `server.js`:
+1.  Saves the incoming code to a temporary `Main.java` file.
+2.  Invokes `javac` to compile the file into `Main.class`.
+3.  Invokes `javap -c` to extract the compiled bytecode.
+4.  Executes the Java tracer: `java TraceGenerator Main`.
+5.  Captures the standard output of the tracer (a massive JSON array representing the timeline of states) and returns it alongside the bytecode to the frontend.
+6.  *Safety Mechanism*: Uses configurable execution limits and up to a 50MB `maxBuffer` to handle massive traces generated by long-running loops.
 
-## Supported Java subset (today)
+### 2. The JDI Tracing Engine (`TraceGenerator.java`)
+This is the core engine of JavaFlow. Written in Java using the `com.sun.jdi` package, the tracer performs the heavy lifting:
+1.  **Launches a Target VM**: It spawns a completely separate, suspended JVM process targeting the user's compiled `Main` class.
+2.  **Event Requests**: It registers `ClassPrepareRequest`, `MethodEntryRequest`, `MethodExitRequest`, and `StepRequest` listeners.
+3.  **Event Loop**: As the target VM resumes, the debugger intercepts execution at every single line of code (step event).
+4.  **State Extraction**: At every halt, the tracer pauses the target VM and recursively extracts its state:
+    *   It extracts all threads and iterates over their `StackFrame`s.
+    *   It reads `LocalVariable`s and resolves their `Value`s (handling Primitive vs Object references).
+    *   It leverages `ReferenceType.instances(0)` to scan the Heap for instantiated objects belonging to the user's classes, tracking them by `uniqueID()`.
+    *   It queries `java.lang.String` instances to differentiate the String Pool.
+5.  **Trace Serialization**: The extracted state is serialized into a JSON snapshot. The sequence of all snapshots forms the complete execution trace.
 
-Works: classes/fields/constructors/methods, inheritance, `if/while/for`, recursion,
-arithmetic/boolean/string ops, `new`, field/method access, `System.out.println/print`,
-lambdas (`() -> {...}`), single-level `Thread`/`Runnable`.
+### 3. The Frontend (React + Vite + Tailwind)
+The frontend is a purely reactive UI that consumes the JSON trace array:
+*   Once the trace is downloaded, the frontend disconnects from the backend; playback is entirely local and instantaneous without network latency.
+*   State management tracks a `stepIndex`. As this index changes (via the Play button or scrubber), the components (`HeapView`, `CallStackView`, `StringPoolView`, etc.) reactively re-render using the data slice at `trace[stepIndex]`.
+*   The UI is styled using **Tailwind CSS**, featuring a meticulously designed custom dark theme (`bg-surface`, `text-on-surface`, custom accent colors for memory areas) to provide a sleek, IDE-like experience.
 
-Not yet supported: interfaces, generics (parsed but ignored), arrays beyond a basic
-`new T[n]`, switch statements, exceptions (`try/catch` is parsed as a no-op path — not
-wired into the interpreter yet), static fields shared across instances, real
-multi-thread interleaving, and anything requiring the real Java standard library
-(collections, streams, etc.).
+---
 
-## Extending toward "real" JVM fidelity
+## 💻 Running it Locally
 
-If you want this to go from *model simulation* to *actual bytecode-level accuracy*,
-the natural upgrade path is:
+### Prerequisites
+*   **Node.js** (v16+)
+*   **Java Development Kit (JDK)** (v11+). The `javac` and `java` executables must be available in your system `PATH`.
 
-1. **Real parsing**: swap the hand-rolled parser for `javac` + read the `.class` file,
-   or use a library like `java-parser`/ANTLR's Java grammar, so you support 100% of
-   the language instead of a curated subset.
-2. **Real bytecode stepping**: run the compiled class under a real JVM and drive it
-   with the **JDI (Java Debug Interface)** or **JVMTI** — attach as a debugger,
-   single-step bytecode instructions, and read the actual heap/stack/thread state at
-   each step via the debug protocol. This is how tools like Java Visualizer /
-   IntelliJ's debugger work, and it would give you *ground-truth* accuracy (real GC,
-   real thread interleaving, real JIT behavior) instead of a simulation.
-3. Keep the current frontend almost as-is — it already just renders "the state at
-   step N," so wiring it to a JDI-backed trace instead of this interpreter is mostly a
-   backend swap, not a rewrite.
+### Setup
 
-Given how much scope (2) alone is, I built the interpreter-based version first so you
-have something working end-to-end today; happy to help you build the JDI-backed
-version next if you want ground-truth bytecode fidelity for a portfolio/production
-version.
+1. **Start the Backend:**
+   ```bash
+   cd backend
+   npm install
+   npm start
+   ```
+   *Runs on `http://localhost:4000`*
+
+2. **Start the Frontend:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   *Runs on `http://localhost:5173` (proxies API requests to port 4000)*
+
+3. **Open your browser** to `http://localhost:5173`. Pick an example from the dropdown or write your own Java code, hit **Run**, and use the transport controls to step through the execution!
+
+---
+
+## 🔮 Supported Java Features
+
+Because JavaFlow relies on real JDI tracing, it supports almost everything you can write in a single file:
+*   Classes, inheritance, and interfaces
+*   Primitives, Wrappers, Arrays, and `String`s
+*   Standard library utilities (Collections, Math, etc. — though exploring deep into library internals is filtered out by default to keep traces readable)
+*   Loops, branches, exceptions, and recursion
+*   Basic multi-threading (creating and starting threads)
+
+## 🎨 UI & Theming
+
+The UI is built using **Tailwind CSS** with a meticulously designed custom dark theme. It features responsive grid layouts, custom typography (`Inter` and `JetBrains Mono`), smooth CSS micro-animations, and distinct color-coding for different memory spaces (e.g., Heap is green, Method Area is orange, Stack is red).

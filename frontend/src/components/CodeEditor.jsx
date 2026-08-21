@@ -1,59 +1,154 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import Editor from '@monaco-editor/react';
+let isJavaSnippetsRegistered = false;
 
-export default function CodeEditor({ code, setCode, activeLine, onRun }) {
-  const textareaRef = useRef(null);
-  const gutterRef = useRef(null);
-  const lines = code.split('\n');
+export default function CodeEditor({ code, setCode, activeLine }) {
+  const editorRef = useRef(null);
+  const decorationsRef = useRef([]);
 
-  function handleKeyDown(e) {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = e.target.selectionStart;
-      const end = e.target.selectionEnd;
-      const newCode = code.substring(0, start) + '  ' + code.substring(end);
-      setCode(newCode);
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2;
+  function handleEditorDidMount(editor, monaco) {
+    editorRef.current = editor;
+    
+    monaco.editor.defineTheme('jvm-theme', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#0d1117',
+        'editor.lineHighlightBackground': '#10b98122',
+      }
+    });
+    monaco.editor.setTheme('jvm-theme');
+    
+    if (!isJavaSnippetsRegistered) {
+      monaco.languages.registerCompletionItemProvider('java', {
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const javaClasses = [
+            'String', 'Object', 'System', 'Integer', 'Double', 'Boolean', 'Math', 
+            'ArrayList', 'List', 'Map', 'HashMap', 'Set', 'HashSet', 'Scanner', 
+            'File', 'Arrays', 'Collections', 'Thread', 'Runnable', 'Exception', 
+            'RuntimeException', 'IllegalArgumentException', 'NullPointerException', 
+            'LinkedList', 'TreeMap', 'TreeSet', 'Queue', 'Stack'
+          ];
+          
+          const classSuggestions = javaClasses.map(cls => ({
+            label: cls,
+            kind: monaco.languages.CompletionItemKind.Class,
+            insertText: cls,
+            range: range
+          }));
+
+          return {
+            suggestions: [
+              ...classSuggestions,
+              {
+                label: 'sout',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: 'System.out.println(${1:});',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Print to standard output',
+                range: range,
+              },
+              {
+                label: 'psvm',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: [
+                  'public static void main(String[] args) {',
+                  '\t$0',
+                  '}'
+                ].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Main method',
+                range: range,
+              },
+              {
+                label: 'fori',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: [
+                  'for (int ${1:i} = 0; ${1:i} < ${2:10}; ${1:i}++) {',
+                  '\t$0',
+                  '}'
+                ].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'For loop',
+                range: range,
+              },
+              {
+                label: 'class',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: [
+                  'class ${1:Main} {',
+                  '\t$0',
+                  '}'
+                ].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Class declaration',
+                range: range,
+              }
+            ]
+          };
         }
-      }, 0);
-    } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      if (onRun) onRun();
+      });
+      isJavaSnippetsRegistered = true;
     }
+    
+    updateHighlight();
   }
 
-  function handleScroll(e) {
-    if (gutterRef.current) {
-      gutterRef.current.scrollTop = e.target.scrollTop;
+  function updateHighlight() {
+    if (!editorRef.current) return;
+    
+    if (!activeLine) {
+      decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, []);
+      return;
     }
+
+    decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, [
+      {
+        range: { startLineNumber: activeLine, startColumn: 1, endLineNumber: activeLine, endColumn: 1 },
+        options: {
+          isWholeLine: true,
+          className: 'code-highlight',
+          marginClassName: 'code-highlight-margin'
+        }
+      }
+    ]);
+    
+    editorRef.current.revealLineInCenter(activeLine);
   }
+
+  useEffect(() => {
+    updateHighlight();
+  }, [activeLine]);
 
   return (
-    <div className="editor-panel">
-      <div className="editor-header">
-        <div className="editor-title">
-          <span className="file-icon">📄</span> Main.java
-        </div>
-        <div className="editor-hint">Press Tab to indent • Ctrl+Enter to Run</div>
-      </div>
-      <div className="editor-container">
-        <div className="editor-gutter" ref={gutterRef}>
-          {lines.map((_, i) => (
-            <div key={i} className={activeLine === i + 1 ? 'gutter-line active' : 'gutter-line'}>
-              {i + 1}
-            </div>
-          ))}
-        </div>
-        <textarea
-          ref={textareaRef}
-          className="editor-textarea"
-          spellCheck={false}
-          value={code}
-          onKeyDown={handleKeyDown}
-          onScroll={handleScroll}
-          onChange={(e) => setCode(e.target.value)}
-        />
-      </div>
+    <div className="flex-1 w-full bg-[#0d1117] min-h-0 overflow-hidden">
+      <Editor
+        height="100%"
+        language="java"
+        theme="vs-dark"
+        value={code}
+        onChange={(value) => setCode(value || '')}
+        onMount={handleEditorDidMount}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 13,
+          fontFamily: "'JetBrains Mono', monospace",
+          lineHeight: 24,
+          scrollBeyondLastLine: false,
+          smoothScrolling: true,
+          renderLineHighlight: "none",
+          padding: { top: 16, bottom: 16 },
+          wordWrap: "on",
+        }}
+      />
     </div>
   );
 }
