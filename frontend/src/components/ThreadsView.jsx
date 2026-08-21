@@ -1,52 +1,42 @@
 import React from 'react';
-import Panel from './Panel.jsx';
 
-const STATUS_COLOR = {
-  RUNNING: '#4ade80',
-  RUNNABLE: '#facc15',
-  TERMINATED: '#6b7280'
-};
+export default function ThreadsView({ threads, activeThreadId, onInfoClick }) {
+  const threadList = Object.values(threads || {});
 
-export default function ThreadsView({ threads, activeThreadId }) {
-  const ids = Object.keys(threads || {});
   return (
-    <Panel title="Threads &amp; Call Stack" badge={ids.length}>
-      {ids.length === 0 && <div className="empty-hint">No threads yet</div>}
-      {ids.map((id) => {
-        const t = threads[id];
-        return (
-          <div key={id} className={`thread-block ${activeThreadId === id ? 'active-thread' : ''}`}>
-            <div className="thread-header">
-              <span className="thread-dot" style={{ background: STATUS_COLOR[t.status] || '#888' }} />
-              <span className="thread-name">{t.name}</span>
-              <span className="thread-status">{t.status}</span>
-            </div>
-            <div className="stack-frames">
-              {t.callStack.length === 0 && <div className="empty-hint small">stack empty</div>}
-              {[...t.callStack].reverse().map((frame, idx) => (
-                <div key={idx} className={`stack-frame ${idx === 0 ? 'top-frame' : ''}`}>
-                  <div className="stack-frame-title">
-                    {frame.className}.{frame.method}() {frame.line ? <span className="frame-line">line {frame.line}</span> : null}
-                  </div>
-                  {Object.keys(frame.vars).length > 0 && (
-                    <div className="frame-vars">
-                      {Object.entries(frame.vars).map(([k, v]) => (
-                        <span className="var-chip" key={k}>{k} = {formatVar(v)}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+    <div className="bg-surface border border-border-subtle rounded-lg flex-1 flex flex-col shadow-sm">
+      <div className="bg-surface-container border-b border-border-subtle px-panel-padding py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="text-label-caps font-label-caps text-on-surface-variant uppercase tracking-wider font-bold">Threads</div>
+          <button onClick={onInfoClick} className="text-on-surface-variant/50 hover:text-on-surface-variant transition-colors flex items-center" title="About Threads">
+            <span className="material-symbols-outlined text-[14px]">info</span>
+          </button>
+        </div>
+      </div>
+      <div className="p-panel-padding overflow-auto scrollbar-hide flex-1 flex flex-col gap-1">
+        {threadList.length === 0 ? (
+          <div className="text-on-surface-variant/50 italic text-center py-4 font-body-sm text-body-sm my-auto">
+            No threads running.
           </div>
-        );
-      })}
-    </Panel>
+        ) : (
+          threadList.map(t => {
+            const isActive = t.id === activeThreadId;
+            return (
+              <div key={t.id} className={`flex items-center justify-between p-2 rounded ${isActive ? 'bg-surface-container-high border border-border-subtle' : 'hover:bg-surface-container transition-colors'}`}>
+                <div className={`flex items-center gap-2 ${!isActive ? 'opacity-50' : ''}`}>
+                  <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-pc-register shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'bg-outline-variant'}`}></div>
+                  <span className={`font-code-sm text-code-sm ${isActive ? 'text-on-surface' : 'text-on-surface-variant'}`}>
+                    {t.name}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-code-sm ${isActive ? 'text-pc-register' : 'text-on-surface-variant opacity-50'}`}>
+                  {t.status}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
-}
-
-function formatVar(v) {
-  if (v && typeof v === 'object' && v.__ref) return `obj#${v.__ref}`;
-  if (v === null || v === undefined) return 'null';
-  return String(v);
 }

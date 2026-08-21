@@ -1,4 +1,29 @@
 export const EXAMPLES = {
+  'Default': `class Main {
+  public static void main(String[] args) {
+    // Write your custom code here
+    System.out.println("Hello, World!");
+  }
+}
+`,
+
+  'Garbage Collection': `class Main {
+  public static void main(String[] args) {
+    // 1. Create an object
+    Object myObj = new Object();
+    
+    // 2. The object is reachable via 'myObj'
+    System.out.println("Object is active");
+    
+    // 3. Remove the reference
+    myObj = null;
+    
+    // 4. The object is now unreachable and eligible for GC!
+    System.out.println("Object is now garbage");
+  }
+}
+`,
+
   'Objects & Heap': `class Counter {
   int value;
 
@@ -66,4 +91,4 @@ class Main {
 `
 };
 
-export const DEFAULT_EXAMPLE = 'Objects & Heap';
+export const DEFAULT_EXAMPLE = 'Default';
