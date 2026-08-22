@@ -114,3 +114,15 @@ Because JavaFlow relies on real JDI tracing, it supports almost everything you c
 ## 🎨 UI & Theming
 
 The UI is built using **Tailwind CSS** with a meticulously designed custom dark theme. It features responsive grid layouts, custom typography (`Inter` and `JetBrains Mono`), smooth CSS micro-animations, and distinct color-coding for different memory spaces (e.g., Heap is green, Method Area is orange, Stack is red).
+
+---
+
+## 🤝 Contributing
+
+JavaFlow is an open-source project, and contributions are incredibly welcome! Whether it's fixing bugs, improving the UI, or adding new features to the JDI tracing engine, we'd love your help. 
+
+Please check out our [Contributing Guide](CONTRIBUTING.md) to learn how you can set up the project locally and submit Pull Requests.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
