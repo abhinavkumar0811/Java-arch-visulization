@@ -72,6 +72,7 @@ app.post('/api/execute', (req, res) => {
 
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'JVM Architecture Visualizer API is running' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+app.get('/healthz', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 app.get('/api/health', (req, res) => res.json({ ok: true, status: 'ok' }));
 
 const PORT = process.env.PORT || 4000;
