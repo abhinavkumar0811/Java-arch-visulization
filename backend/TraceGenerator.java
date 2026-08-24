@@ -11,17 +11,50 @@ import java.io.*;
 public class TraceGenerator {
     private static VirtualMachine vm;
     private static int stepCount = 0;
-    private static List<String> traces = new ArrayList<>();
     private static Map<Long, ObjectReference> allKnownObjects = new HashMap<>();
     private static Map<Long, String> stringPool = new HashMap<>();
     private static List<String> stdoutBuffer = Collections.synchronizedList(new ArrayList<>());
+    
+    // Caches to heavily reduce JDI IPC overhead
+    private static Map<ReferenceType, Boolean> classIsUserCache = new HashMap<>();
+    private static Map<ReferenceType, String> classJsonCache = new HashMap<>();
+    private static Map<ReferenceType, List<Field>> classFieldsCache = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
-            System.err.println("Usage: java TraceGenerator <MainClass>");
+            System.err.println("Usage: java TraceGenerator [--serverless] <MainClass>");
             System.exit(1);
         }
+        
+        boolean serverless = false;
         String mainClass = args[0];
+        
+        if (args[0].equals("--serverless")) {
+            serverless = true;
+            mainClass = args[1];
+            
+            // Programmatic Compilation
+            javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+            if (compiler != null) {
+                compiler.run(null, null, null, "-g", mainClass + ".java");
+            }
+            
+            // Programmatic Javap
+            String bytecode = "";
+            java.util.spi.ToolProvider javap = java.util.spi.ToolProvider.findFirst("javap").orElse(null);
+            if (javap != null) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                javap.run(pw, pw, "-c", "-p", mainClass);
+                bytecode = sw.toString();
+            }
+            
+            System.out.println("{");
+            System.out.println("  \"bytecode\": \"" + escape(bytecode) + "\",");
+            System.out.println("  \"trace\": [");
+        } else {
+            System.out.println("[");
+        }
 
         LaunchingConnector launchingConnector = Bootstrap.virtualMachineManager().defaultConnector();
         Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
@@ -59,8 +92,6 @@ public class TraceGenerator {
         ExceptionRequest exReq = erm.createExceptionRequest(null, false, true); // Catch uncaught exceptions
         exReq.enable();
 
-        System.out.println("[");
-
         boolean first = true;
         while (true) {
             EventQueue eventQueue = vm.eventQueue();
@@ -82,14 +113,14 @@ public class TraceGenerator {
                         if (se.thread().frameCount() > 50) {
                             System.out.println(",");
                             dumpState(se.thread(), "Exception: java.lang.StackOverflowError");
-                            System.out.println("\n]");
+                            if (serverless) { System.out.println("\n  ]\n}"); } else { System.out.println("\n]"); }
                             try { vm.exit(0); } catch (Exception ignore) {}
                             System.exit(0);
                         }
                     } catch (IncompatibleThreadStateException ignore) {}
 
                     if (stepCount >= 1000) {
-                        System.out.println("\n]");
+                        if (serverless) { System.out.println("\n  ]\n}"); } else { System.out.println("\n]"); }
                         try { vm.exit(0); } catch (Exception ignore) {}
                         System.exit(0);
                     }
@@ -105,13 +136,13 @@ public class TraceGenerator {
                         dumpState(ee.thread(), "Exception: " + ee.exception().referenceType().name());
                     } catch (Exception ignore) {}
                     
-                    System.out.println("\n]");
+                    if (serverless) { System.out.println("\n  ]\n}"); } else { System.out.println("\n]"); }
                     try { vm.exit(0); } catch (Exception ignore) {}
                     System.exit(0);
                 } else if (event instanceof VMDeathEvent || event instanceof VMDisconnectEvent) {
                     // Give streams a moment to flush before exiting
                     try { Thread.sleep(50); } catch (InterruptedException ignore) {}
-                    System.out.println("\n]");
+                    if (serverless) { System.out.println("\n  ]\n}"); } else { System.out.println("\n]"); }
                     System.exit(0);
                 }
             }
@@ -143,39 +174,52 @@ public class TraceGenerator {
         json.append("    \"methodArea\": {\n");
         boolean firstClass = true;
         for (ReferenceType refType : vm.allClasses()) {
-            String cname = refType.name();
-            if (cname.startsWith("java.") || cname.startsWith("javax.") || cname.startsWith("sun.") || cname.startsWith("jdk.") || cname.startsWith("com.sun.") || cname.contains("$")) {
-                continue;
+            Boolean isUser = classIsUserCache.get(refType);
+            if (isUser == null) {
+                String cname = refType.name();
+                isUser = !(cname.startsWith("java.") || cname.startsWith("javax.") || cname.startsWith("sun.") || cname.startsWith("jdk.") || cname.startsWith("com.sun.") || cname.contains("$"));
+                classIsUserCache.put(refType, isUser);
             }
+            
+            if (!isUser) continue;
+            
             if (!firstClass) json.append(",\n");
             firstClass = false;
             
-            json.append("      \"").append(escape(cname)).append("\": {\n");
-            json.append("        \"name\": \"").append(escape(cname)).append("\",\n");
-            
-            json.append("        \"fields\": [");
-            boolean firstF = true;
-            try {
-                for (Field f : refType.allFields()) {
-                    if (!firstF) json.append(",");
-                    firstF = false;
-                    json.append("{\"name\": \"").append(escape(f.name())).append("\", \"type\": \"").append(escape(f.typeName())).append("\"}");
-                }
-            } catch (Exception e) {}
-            json.append("],\n");
-            
-            json.append("        \"methods\": [");
-            boolean firstM = true;
-            try {
-                for (Method m : refType.allMethods()) {
-                    if (m.name().startsWith("<")) continue; // Skip <init> and <clinit> to keep it clean, or keep it? Let's keep it clean
-                    if (!firstM) json.append(",");
-                    firstM = false;
-                    json.append("{\"name\": \"").append(escape(m.name())).append("\"}");
-                }
-            } catch (Exception e) {}
-            json.append("]\n");
-            json.append("      }");
+            String cachedJson = classJsonCache.get(refType);
+            if (cachedJson == null) {
+                StringBuilder cjson = new StringBuilder();
+                String cname = refType.name();
+                cjson.append("      \"").append(escape(cname)).append("\": {\n");
+                cjson.append("        \"name\": \"").append(escape(cname)).append("\",\n");
+                
+                cjson.append("        \"fields\": [");
+                boolean firstF = true;
+                try {
+                    for (Field f : refType.allFields()) {
+                        if (!firstF) cjson.append(",");
+                        firstF = false;
+                        cjson.append("{\"name\": \"").append(escape(f.name())).append("\", \"type\": \"").append(escape(f.typeName())).append("\"}");
+                    }
+                } catch (Exception e) {}
+                cjson.append("],\n");
+                
+                cjson.append("        \"methods\": [");
+                boolean firstM = true;
+                try {
+                    for (Method m : refType.allMethods()) {
+                        if (m.name().startsWith("<")) continue;
+                        if (!firstM) cjson.append(",");
+                        firstM = false;
+                        cjson.append("{\"name\": \"").append(escape(m.name())).append("\"}");
+                    }
+                } catch (Exception e) {}
+                cjson.append("]\n");
+                cjson.append("      }");
+                cachedJson = cjson.toString();
+                classJsonCache.put(refType, cachedJson);
+            }
+            json.append(cachedJson);
         }
         json.append("\n    },\n");
         
@@ -273,8 +317,15 @@ public class TraceGenerator {
                         json.append("\"...\": \"(").append(values.size() - 20).append(" more items)\"");
                     }
                 } else {
-                    for (Field f : objRef.referenceType().allFields()) {
-                        if (f.isStatic()) continue; // skip statics for heap objects
+                    List<Field> fields = classFieldsCache.get(objRef.referenceType());
+                    if (fields == null) {
+                        fields = new ArrayList<>();
+                        for (Field f : objRef.referenceType().allFields()) {
+                            if (!f.isStatic()) fields.add(f);
+                        }
+                        classFieldsCache.put(objRef.referenceType(), fields);
+                    }
+                    for (Field f : fields) {
                         Value v = objRef.getValue(f);
                         if (!firstField) json.append(",");
                         firstField = false;
@@ -350,8 +401,15 @@ public class TraceGenerator {
                     }
                 }
             } else {
-                for (Field f : obj.referenceType().allFields()) {
-                    if (f.isStatic()) continue;
+                List<Field> fields = classFieldsCache.get(obj.referenceType());
+                if (fields == null) {
+                    fields = new ArrayList<>();
+                    for (Field f : obj.referenceType().allFields()) {
+                        if (!f.isStatic()) fields.add(f);
+                    }
+                    classFieldsCache.put(obj.referenceType(), fields);
+                }
+                for (Field f : fields) {
                     Value v = obj.getValue(f);
                     if (v instanceof ObjectReference) {
                         long id = ((ObjectReference) v).uniqueID();
