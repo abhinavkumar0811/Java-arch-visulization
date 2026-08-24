@@ -4,7 +4,6 @@
   "description": "Java-subset interpreter that emits a step-by-step JVM execution trace (Method Area, Heap, Stack, Threads).",
   "main": "server.js",
   "scripts": {
-    "postinstall": "javac -g TraceGenerator.java",
     "start": "node server.js",
     "test": "node test.js"
   },
