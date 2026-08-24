@@ -28,11 +28,12 @@ app.post('/api/execute', (req, res) => {
   
   fs.writeFileSync(javaFile, finalCode);
 
-  // 1. Run TraceGenerator in serverless mode (compiles, extracts bytecode, and traces in a single JVM)
-  exec(`java TraceGenerator --serverless Main`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
-    let trace = null;
-    let bytecode = "Failed to extract bytecode.";
-    let salvageWarning = '';
+  const runTrace = () => {
+    // 1. Run TraceGenerator in serverless mode (compiles, extracts bytecode, and traces in a single JVM)
+    exec(`java TraceGenerator --serverless Main`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
+      let trace = null;
+      let bytecode = "Failed to extract bytecode.";
+      let salvageWarning = '';
     
     if (stdout && stdout.trim().startsWith('{')) {
       try {
@@ -60,7 +61,20 @@ app.post('/api/execute', (req, res) => {
     }
     
     res.json({ trace, bytecode, error: err ? ('Execution Warning:\n' + (stderr || err.message)) : null });
-  });
+    });
+  };
+
+  if (!fs.existsSync(path.join(tempDir, 'TraceGenerator.class'))) {
+    console.log("TraceGenerator.class not found. Compiling...");
+    exec(`javac -g TraceGenerator.java`, { cwd: tempDir }, (err, stdout, stderr) => {
+      if (err) {
+        return res.status(200).json({ error: 'Backend Setup Error:\n' + stderr });
+      }
+      runTrace();
+    });
+  } else {
+    runTrace();
+  }
 });
 
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'JVM Architecture Visualizer API is running' }));
