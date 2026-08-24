@@ -11,7 +11,7 @@ import BytecodeView from './components/BytecodeView.jsx';
 import InfoModal from './components/InfoModal.jsx';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+const API_BASE = (import.meta.env.VITE_API_BASE || 'https://java-arch-visulization.onrender.com').replace(/\/$/, '');
 
 export default function App() {
   const [exampleName, setExampleName] = useState(DEFAULT_EXAMPLE);
