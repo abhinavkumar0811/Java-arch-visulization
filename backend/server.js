@@ -1,3 +1,4 @@
+// JVM Architecture Visualizer Server
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -23,7 +24,7 @@ const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 50,
   message: { ok: false, message: 'Too many requests overall. Please try again later.' },
-  standardHeaders: true,
+  standardHeaders: false,
   legacyHeaders: false,
 });
 app.use(globalLimiter);
@@ -50,6 +51,7 @@ const dailyAiLimiter = rateLimit({
   max: 11, // Max 11 new generations per IP per day
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET',
   message: { ok: false, type: 'rate_limit_daily', message: 'Daily AI generation limit reached (11 per day). Please try again tomorrow.' },
 });
 
@@ -59,6 +61,7 @@ const dailyRegenLimiter = rateLimit({
   max: 5, // Max 5 regenerations per IP per day
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET',
   message: { ok: false, type: 'rate_limit_regen', message: 'Daily AI regeneration limit reached (5 per day). Please try again tomorrow.' },
 });
 
@@ -244,8 +247,16 @@ app.post('/api/ai-visualize/regenerate', dailyRegenLimiter, aiLimiter, async (re
   }
 });
 
-app.get('/api/rate-limit-status', dailyAiLimiter, (req, res) => {
-  res.json({ ok: true, remaining: req.rateLimit ? req.rateLimit.remaining : 11 });
+app.get('/api/rate-limit-status', async (req, res) => {
+  try {
+    const key = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const record = await dailyAiLimiter.store.get(key);
+    const totalHits = record ? record.totalHits : 0;
+    const remaining = Math.max(0, 11 - totalHits);
+    res.json({ ok: true, remaining });
+  } catch (e) {
+    res.json({ ok: true, remaining: 11 });
+  }
 });
 
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'JVM Architecture Visualizer API is running' }));

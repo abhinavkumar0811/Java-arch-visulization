@@ -1,67 +1,64 @@
 import java.util.*; import java.io.*; import java.math.*; import java.time.*;
+import java.util.*;
+
 class Solution {
 
-    public int numIslands(char[][] grid) {
+    static class TreeNode {
+        int val;
+        TreeNode left;
+        TreeNode right;
 
-        int count = 0;
-
-        for (int i = 0; i < grid.length; i++) {
-
-            for (int j = 0; j < grid[0].length; j++) {
-
-                if (grid[i][j] == '1') {
-
-                    count++;
-
-                    dfs(grid, i, j);
-                }
-            }
+        TreeNode(int val) {
+            this.val = val;
         }
-
-        return count;
     }
 
-    private void dfs(char[][] grid, int row, int col) {
+    public void dfs(TreeNode root, List<Integer> result) {
 
-        // Boundary check
-        if (row < 0 ||
-            row >= grid.length ||
-            col < 0 ||
-            col >= grid[0].length ||
-            grid[row][col] == '0') {
-
+        if (root == null) {
             return;
         }
 
-        // Mark current land as visited
-        grid[row][col] = '0';
+        // Visit current node
+        result.add(root.val);
 
-        // Down
-        dfs(grid, row + 1, col);
+        // Traverse left subtree
+        dfs(root.left, result);
 
-        // Up
-        dfs(grid, row - 1, col);
-
-        // Right
-        dfs(grid, row, col + 1);
-
-        // Left
-        dfs(grid, row, col - 1);
+        // Traverse right subtree
+        dfs(root.right, result);
     }
 
     public static void main(String[] args) {
 
         Solution obj = new Solution();
 
-        char[][] grid = {
-            {'1', '1', '0', '0', '0'},
-            {'1', '1', '0', '1', '1'},
-            {'0', '0', '0', '1', '1'},
-            {'0', '0', '0', '0', '0'},
-            {'1', '0', '1', '1', '1'}
-        };
+        /*
+                  1
+                /   \
+               2     3
+              / \   / \
+             4   5 6   7
+                /
+               8
+        */
 
-        int result = obj.numIslands(grid);
+        TreeNode root = new TreeNode(1);
+
+        root.left = new TreeNode(2);
+        root.right = new TreeNode(3);
+
+        root.left.left = new TreeNode(4);
+        root.left.right = new TreeNode(5);
+
+        root.right.left = new TreeNode(6);
+        root.right.right = new TreeNode(7);
+
+        root.left.right.left = new TreeNode(8);
+
+        List<Integer> result = new ArrayList<>();
+
+        obj.dfs(root, result);
 
         System.out.println(result);
     }

@@ -129,12 +129,7 @@ export default function App() {
   function handleViewSwitch(targetView) {
     if (targetView === activeView) return;
 
-    if (activeView === 'dry-run') {
-      setSwitchPrompt({ type: 'leave-dry-run', target: targetView });
-      return;
-    }
-
-    if (targetView === 'dry-run') {
+    if (activeView === 'dry-run' || targetView === 'dry-run') {
       setActiveView(targetView);
       localStorage.setItem('activeView', targetView);
       return;
@@ -382,48 +377,7 @@ export default function App() {
       <InfoModal type={infoModal} onClose={() => setInfoModal(null)} />
 
       {/* View Switch Prompt Modal */}
-      {switchPrompt && switchPrompt.type === 'leave-dry-run' && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-surface border border-border-subtle rounded-xl shadow-2xl p-6 w-[400px] flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                <span className="material-symbols-outlined text-[20px]">save</span>
-              </div>
-              <div>
-                <h3 className="text-on-surface font-bold text-lg leading-tight">Save Code?</h3>
-                <p className="text-on-surface-variant text-body-sm mt-1">
-                  You are switching away from Dry Run.
-                </p>
-              </div>
-            </div>
-            
-            <p className="text-on-surface-variant text-[13px] leading-relaxed">
-              Do you want to save your current Dry Run code so it's here when you return, or discard it?
-            </p>
 
-            <div className="flex justify-end gap-3 mt-2">
-              <button 
-                onClick={() => setSwitchPrompt(null)}
-                className="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold mr-auto"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => confirmSwitch('discard')}
-                className="px-4 py-2 rounded-lg border border-border-subtle text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold"
-              >
-                Don't Save
-              </button>
-              <button 
-                onClick={() => confirmSwitch('save')}
-                className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed transition-colors text-label-caps font-bold"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {switchPrompt && switchPrompt.type === 'sync' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">

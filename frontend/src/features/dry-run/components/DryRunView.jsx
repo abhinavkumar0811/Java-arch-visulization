@@ -230,11 +230,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
   // Fetch initial rate limit status on load
   useEffect(() => {
     fetch(`${API_BASE}/api/rate-limit-status`)
-      .then(res => {
-        const rem = res.headers.get('RateLimit-Remaining');
-        if (rem !== null) setRateLimitRemaining(parseInt(rem, 10));
-        return res.json();
-      })
+      .then(res => res.json())
       .then(data => {
         if (data && data.remaining !== undefined) {
           setRateLimitRemaining(data.remaining);
@@ -301,11 +297,11 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
     return () => clearInterval(timerRef.current);
   }, [isPlaying, speed, total]);
 
-  const handleGenerateAi = useCallback(async (traceDataToUse) => {
+  const handleGenerateAi = useCallback(async (traceDataToUse, isRegenerate = false) => {
     setIsGeneratingAi(true);
     setError(null);
     try {
-      const endpoint = aiVisualizerHtml 
+      const endpoint = isRegenerate
         ? `${API_BASE}/api/ai-visualize/regenerate` 
         : `${API_BASE}/api/ai-visualize`;
         
@@ -343,7 +339,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
     } finally {
       setIsGeneratingAi(false);
     }
-  }, [code, trace]);
+  }, [code, API_BASE]);
 
   const handleRun = useCallback(async () => {
     setLoading(true);
@@ -365,7 +361,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
         setTrace(normalized);
 
         // Auto-generate AI visualizer on successful run (wait for it to finish)
-        const success = await handleGenerateAi(normalized);
+        const success = await handleGenerateAi(normalized, false);
         
         // Start playback ONLY if visualizer successfully generated
         if (success) {
@@ -502,7 +498,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
               )}
               {total > 0 && (
                 <button
-                  onClick={() => handleGenerateAi()}
+                  onClick={() => handleGenerateAi(null, Boolean(aiVisualizerHtml))}
                   disabled={isGeneratingAi}
                   className="px-3 py-1 rounded-[6px] bg-[#21262d] hover:bg-[#30363d] border border-[#363b42] text-[#c9d1d9] text-[12px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                   title="Regenerate with AI"
