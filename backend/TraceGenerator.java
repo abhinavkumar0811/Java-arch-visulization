@@ -36,7 +36,11 @@ public class TraceGenerator {
             // Programmatic Compilation
             javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
             if (compiler != null) {
-                compiler.run(null, null, null, "-g", mainClass + ".java");
+                int res = compiler.run(null, null, System.err, "-g", mainClass + ".java");
+                if (res != 0) {
+                    System.err.println("Compilation failed for " + mainClass + ".java");
+                    System.exit(1);
+                }
             }
             
             // Programmatic Javap
@@ -92,6 +96,10 @@ public class TraceGenerator {
         ExceptionRequest exReq = erm.createExceptionRequest(null, false, true); // Catch uncaught exceptions
         exReq.enable();
 
+        MethodExitRequest mer = erm.createMethodExitRequest();
+        mer.addClassFilter(mainClass);
+        mer.enable();
+
         boolean first = true;
         while (true) {
             EventQueue eventQueue = vm.eventQueue();
@@ -123,6 +131,15 @@ public class TraceGenerator {
                         if (serverless) { System.out.println("\n  ]\n}"); } else { System.out.println("\n]"); }
                         try { vm.exit(0); } catch (Exception ignore) {}
                         System.exit(0);
+                    }
+                } else if (event instanceof MethodExitEvent) {
+                    MethodExitEvent mee = (MethodExitEvent) event;
+                    if (mee.method().name().equals("main")) {
+                        if (!first) System.out.println(",");
+                        first = false;
+                        // Give stream a tiny moment to flush
+                        try { Thread.sleep(50); } catch (InterruptedException ignore) {}
+                        dumpState(mee.thread(), "Program Finished");
                     }
                 } else if (event instanceof ExceptionEvent) {
                     ExceptionEvent ee = (ExceptionEvent) event;

@@ -2,9 +2,10 @@ import React, { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 let isJavaSnippetsRegistered = false;
 
-export default function CodeEditor({ code, setCode, activeLine }) {
+export default function CodeEditor({ code, setCode, activeLine, lineHits }) {
   const editorRef = useRef(null);
   const decorationsRef = useRef([]);
+  const heatmapDecorationsRef = useRef([]);
 
   function handleEditorDidMount(editor, monaco) {
     editorRef.current = editor;
@@ -19,6 +20,22 @@ export default function CodeEditor({ code, setCode, activeLine }) {
       }
     });
     monaco.editor.setTheme('jvm-theme');
+
+    // Inject heatmap CSS classes into Monaco's container
+    const style = document.createElement('style');
+    style.textContent = `
+      .heatmap-hot { background: rgba(239, 68, 68, 0.18) !important; }
+      .heatmap-warm { background: rgba(249, 115, 22, 0.14) !important; }
+      .heatmap-mild { background: rgba(251, 191, 36, 0.1) !important; }
+      .heatmap-cold { background: rgba(59, 130, 246, 0.08) !important; }
+      .heatmap-margin-hot { border-left: 3px solid rgba(239,68,68,0.8); }
+      .heatmap-margin-warm { border-left: 3px solid rgba(249,115,22,0.7); }
+      .heatmap-margin-mild { border-left: 3px solid rgba(251,191,36,0.6); }
+      .heatmap-margin-cold { border-left: 3px solid rgba(59,130,246,0.4); }
+      .code-highlight { background: rgba(46, 160, 67, 0.15) !important; }
+      .code-highlight-margin { border-left: 3px solid rgba(46, 160, 67, 0.8) !important; background: rgba(46, 160, 67, 0.1) !important; }
+    `;
+    document.head.appendChild(style);
     
     if (!isJavaSnippetsRegistered) {
       monaco.languages.registerCompletionItemProvider('java', {
@@ -128,6 +145,28 @@ export default function CodeEditor({ code, setCode, activeLine }) {
     updateHighlight();
   }, [activeLine]);
 
+  // Apply line heatmap decorations
+  useEffect(() => {
+    if (!editorRef.current) return;
+    if (!lineHits || Object.keys(lineHits).length === 0) {
+      heatmapDecorationsRef.current = editorRef.current.deltaDecorations(heatmapDecorationsRef.current, []);
+      return;
+    }
+    const maxHits = Math.max(...Object.values(lineHits), 1);
+    const newDecorations = Object.entries(lineHits).map(([line, hits]) => {
+      const ratio = hits / maxHits;
+      let cls = 'heatmap-cold', marginCls = 'heatmap-margin-cold';
+      if (ratio >= 0.8) { cls = 'heatmap-hot'; marginCls = 'heatmap-margin-hot'; }
+      else if (ratio >= 0.5) { cls = 'heatmap-warm'; marginCls = 'heatmap-margin-warm'; }
+      else if (ratio >= 0.25) { cls = 'heatmap-mild'; marginCls = 'heatmap-margin-mild'; }
+      return {
+        range: { startLineNumber: Number(line), startColumn: 1, endLineNumber: Number(line), endColumn: 1 },
+        options: { isWholeLine: true, className: cls, marginClassName: marginCls }
+      };
+    });
+    heatmapDecorationsRef.current = editorRef.current.deltaDecorations(heatmapDecorationsRef.current, newDecorations);
+  }, [lineHits]);
+
   return (
     <div className="flex-1 w-full bg-[#0d1117] min-h-0 overflow-hidden">
       <Editor
@@ -147,6 +186,16 @@ export default function CodeEditor({ code, setCode, activeLine }) {
           renderLineHighlight: "none",
           padding: { top: 16, bottom: 16 },
           wordWrap: "on",
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          overviewRulerBorder: false,
+          scrollbar: {
+            vertical: 'visible',
+            verticalScrollbarSize: 14,
+            horizontalScrollbarSize: 14,
+            useShadows: false,
+            alwaysConsumeMouseWheel: false,
+          },
         }}
       />
     </div>

@@ -1,0 +1,112 @@
+/* ─── Dry Run Visualizer Design Tokens ─────────────────────────────────────── */
+
+:root {
+  --dr-cell-size: 44px;
+  --dr-cell-gap: 6px;
+  --dr-radius: 6px;
+  --dr-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Cell states */
+  --dr-color-idle:      #2d333b;
+  --dr-color-idle-text: #adbac7;
+  --dr-color-active:    #1f6feb;
+  --dr-color-active-text: #ffffff;
+  --dr-color-compare:   #d29922;
+  --dr-color-compare-text: #ffffff;
+  --dr-color-match:     #2ea043;
+  --dr-color-match-text: #ffffff;
+  --dr-color-mismatch:  #da3633;
+  --dr-color-mismatch-text: #ffffff;
+  --dr-color-visited:   #6e40c9;
+  --dr-color-visited-text: #ffffff;
+  --dr-color-highlight: #388bfd;
+  --dr-color-edge:      #4d5566;
+  --dr-color-pointer:   #58a6ff;
+
+  /* Timing */
+  --dr-dur-move:      350ms;
+  --dr-dur-highlight: 150ms;
+  --dr-ease:          cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Speed multiplier applied inline on the canvas root */
+.dr-fast  { --dr-dur-move: 150ms; --dr-dur-highlight: 80ms; }
+.dr-slow  { --dr-dur-move: 700ms; --dr-dur-highlight: 300ms; }
+.dr-instant { --dr-dur-move: 0ms; --dr-dur-highlight: 0ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-cell, .dr-edge, .dr-pointer, .dr-circle {
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ── Cell styles ─────────────────────────────────────────────────────────── */
+.dr-cell rect {
+  fill: var(--dr-color-idle);
+  stroke: #444c56;
+  stroke-width: 1.5;
+  rx: var(--dr-radius);
+  transition: fill var(--dr-dur-highlight) var(--dr-ease);
+}
+.dr-cell text {
+  fill: var(--dr-color-idle-text);
+  font-family: var(--dr-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  transition: fill var(--dr-dur-highlight) var(--dr-ease);
+}
+.dr-cell.active rect   { fill: var(--dr-color-active); stroke: var(--dr-color-active); }
+.dr-cell.active text   { fill: var(--dr-color-active-text); }
+.dr-cell.compare rect  { fill: var(--dr-color-compare); stroke: var(--dr-color-compare); }
+.dr-cell.compare text  { fill: var(--dr-color-compare-text); }
+.dr-cell.match rect    { fill: var(--dr-color-match); stroke: var(--dr-color-match); }
+.dr-cell.match text    { fill: var(--dr-color-match-text); }
+.dr-cell.mismatch rect { fill: var(--dr-color-mismatch); stroke: var(--dr-color-mismatch); }
+.dr-cell.visited rect  { fill: var(--dr-color-visited); stroke: var(--dr-color-visited); }
+
+/* ── Circle (tree/graph node) styles ─────────────────────────────────────── */
+.dr-circle circle {
+  fill: var(--dr-color-idle);
+  stroke: #444c56;
+  stroke-width: 1.5;
+  transition: fill var(--dr-dur-highlight) var(--dr-ease);
+}
+.dr-circle text {
+  fill: var(--dr-color-idle-text);
+  font-family: var(--dr-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.dr-circle.active circle  { fill: var(--dr-color-active); stroke: var(--dr-color-active); }
+.dr-circle.active text    { fill: white; }
+.dr-circle.compare circle { fill: var(--dr-color-compare); }
+.dr-circle.compare text   { fill: white; }
+.dr-circle.visited circle { fill: var(--dr-color-visited); }
+.dr-circle.visited text   { fill: white; }
+.dr-circle.match circle   { fill: var(--dr-color-match); }
+.dr-circle.match text     { fill: white; }
+
+/* ── Edges ──────────────────────────────────────────────────────────────── */
+.dr-edge line, .dr-edge path {
+  stroke: var(--dr-color-edge);
+  stroke-width: 1.5;
+  transition: stroke var(--dr-dur-highlight) var(--dr-ease);
+  marker-end: url(#arrowhead);
+}
+.dr-edge.active line, .dr-edge.active path { stroke: var(--dr-color-active); stroke-width: 2.5; }
+
+/* ── Pointer labels ──────────────────────────────────────────────────────── */
+.dr-pointer {
+  transition: transform var(--dr-dur-move) var(--dr-ease);
+}
+.dr-pointer text {
+  fill: var(--dr-color-pointer);
+  font-family: var(--dr-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.dr-pointer line {
+  stroke: var(--dr-color-pointer);
+  stroke-dasharray: 3 2;
+  opacity: 0.6;
+}
