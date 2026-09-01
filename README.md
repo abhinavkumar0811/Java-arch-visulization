@@ -1,128 +1,262 @@
 <div align="center">
-  <img src="frontend/public/logo-full.png" alt="JavaFlow Logo" height="100" />
+  <img src="frontend/public/logo-full.png" alt="JavaFlow Logo" height="80" />
+  <p><b>Step-by-Step JVM Execution Engine & Dynamic Algorithm Visualizer</b></p>
 </div>
 
-# JavaFlow (formerly JVM Visualizer)
+---
 
-<div align="center">
-  <img src="frontend/public/screenshot.png" alt="JavaFlow Screenshot" width="800" />
-</div>
+## Table of Contents
 
-**JavaFlow** is a step-by-step visualizer for actual Java program execution. It gives you a real-time, interactive look into the JVM's memory and execution model: **Heap Memory, Method Area, Call Stack, PC Register, and Threads**.
-
-Write Java code, hit **Run**, and you can play, pause, or scrub through execution step-by-step. Watch objects get allocated in the Heap, strings populate the String Pool, stack frames push and pop, variables mutate, and threads execute—all with ground-truth accuracy.
+- [Overview](#overview)
+- [System Architecture](#system-architecture)
+  - [High-Level Component Interaction](#high-level-component-interaction)
+- [JVM Execution & JDI Tracing Engine](#jvm-execution--jdi-tracing-engine)
+  - [Tracing Lifecycle & Event Handling](#tracing-lifecycle--event-handling)
+  - [Memory State Extraction](#memory-state-extraction)
+- [AI Visualization Engine](#ai-visualization-engine)
+  - [Pipeline & SHA-256 Caching](#pipeline--sha-256-caching)
+  - [Prompt Engineering & State Constraints](#prompt-engineering--state-constraints)
+- [Security & Rate Limiting System](#security--rate-limiting-system)
+  - [Network-Level IP Tracking](#network-level-ip-tracking)
+  - [Quota Configuration & Endpoint Map](#quota-configuration--endpoint-map)
+- [Frontend Architecture & UI Engine](#frontend-architecture--ui-engine)
+  - [Step Player & Trace Normalizer](#step-player--trace-normalizer)
+  - [Resizable Panel System](#resizable-panel-system)
+- [Local Development & Setup](#local-development--setup)
+- [Project Directory Structure](#project-directory-structure)
+- [Authors & Developers](#authors--developers)
+- [License](#license)
 
 ---
 
-## 🚀 In-Depth Features
+## Overview
 
-### 1. Ground-Truth Bytecode Execution (JDI)
-JavaFlow is not a language simulator or a toy interpreter. It utilizes the **Java Debug Interface (JDI)** to attach to a true running JVM instance. This means your code behaves exactly as it would in production: standard library calls work, true object references are tracked, arrays behave natively, and exceptions are real JVM events.
+**JavaFlow** is an interactive debugging and visualization environment for Java program execution. Unlike static AST parsers or simplified language interpreters, JavaFlow attaches directly to a running Java Virtual Machine (JVM) instance via the **Java Debug Interface (JDI)**. It intercepts bytecode execution line-by-line, capturing exact snapshots of the JVM memory state (Call Stack, Heap Objects, Method Area, String Pool, PC Register, and Active Threads).
 
-### 2. Comprehensive Memory Visualization
-*   **Call Stack (JVM Stacks)**: Tracks active frames in real-time. Visually pushes and pops frames upon method entry/exit. Monitors local variables, primitive values, and object references (`@id`), handling method scope correctly.
-*   **Heap Memory**: Visualizes object allocation. Tracks fields and nested references. It even visually flags objects that have become unreachable and are ready for **Garbage Collection (GC)**.
-*   **String Pool**: Demonstrates Java's string interning optimization by capturing String literal allocations in a dedicated pool view, separating them from standard Heap objects.
-*   **Method Area**: Displays dynamically loaded classes and their internal runtime structures (methods, fields, and constructors) along with simulated memory offsets.
-*   **PC Register**: Tracks the currently executing instruction line, providing visual context of the program counter per thread.
-*   **Threads**: Monitors active threads and their execution states (e.g., Running, Suspended), highlighting the currently active thread during execution steps.
-
-### 3. Interactive Code & Playback Tools
-*   **Timeline Scrubber**: Execution is captured as a fully deterministic trace timeline. You can play, pause, step forward, step backward, or drag the scrubber slider to instantly jump to any moment in the program's lifecycle.
-*   **Bytecode Viewer**: Switch between your source code (`.java`) and the compiled bytecode (`.class`) output (generated via `javap`) to see how high-level Java translates to low-level JVM instructions.
-*   **Console Output**: Standard output (`System.out.print`) is captured and synchronized with the exact step it occurred in the timeline.
-
-### 4. Robust Crash & Exception Handling
-*   If your code throws a runtime exception (e.g., `NullPointerException`), JavaFlow catches it and highlights the crash gracefully in the UI.
-*   **Infinite Loop Protection**: Implements a maximum frame depth (simulating `StackOverflowError` after 50 recursive calls) and a maximum event count to prevent infinite loops from crashing the server, allowing you to visualize exactly *why* and *how* the overflow occurred.
-
-### 5. Educational Context
-*   Every visualization panel features an **Info Overlay**. Clicking the `info` icon provides detailed, educational explanations of how that specific component operates within the Java Virtual Machine specification.
+Additionally, JavaFlow incorporates an **AI Visualizer Sandbox** powered by Google Gemini that transforms raw execution traces into domain-specific algorithm diagrams (e.g. 2D grid matrix traversals for DFS/BFS, tree structures, sorting arrays, and graph nodes).
 
 ---
 
-## 🛠️ Architecture
+## System Architecture
 
-JavaFlow is architected with a strict separation of concerns, communicating via a unified JSON trace format.
+JavaFlow uses a client-server architecture with a decoupled Node.js Express backend and a Vite-powered React frontend. Communication between services relies on standard REST APIs and structured JSON trace streams.
 
-### 1. The Backend (Node.js Express API)
-The backend acts as the orchestrator. When a user submits code via the UI, `server.js`:
-1.  Saves the incoming code to a temporary `Main.java` file.
-2.  Invokes `javac` to compile the file into `Main.class`.
-3.  Invokes `javap -c` to extract the compiled bytecode.
-4.  Executes the Java tracer: `java TraceGenerator Main`.
-5.  Captures the standard output of the tracer (a massive JSON array representing the timeline of states) and returns it alongside the bytecode to the frontend.
-6.  *Safety Mechanism*: Uses configurable execution limits and up to a 50MB `maxBuffer` to handle massive traces generated by long-running loops.
+### High-Level Component Interaction
 
-### 2. The JDI Tracing Engine (`TraceGenerator.java`)
-This is the core engine of JavaFlow. Written in Java using the `com.sun.jdi` package, the tracer performs the heavy lifting:
-1.  **Launches a Target VM**: It spawns a completely separate, suspended JVM process targeting the user's compiled `Main` class.
-2.  **Event Requests**: It registers `ClassPrepareRequest`, `MethodEntryRequest`, `MethodExitRequest`, and `StepRequest` listeners.
-3.  **Event Loop**: As the target VM resumes, the debugger intercepts execution at every single line of code (step event).
-4.  **State Extraction**: At every halt, the tracer pauses the target VM and recursively extracts its state:
-    *   It extracts all threads and iterates over their `StackFrame`s.
-    *   It reads `LocalVariable`s and resolves their `Value`s (handling Primitive vs Object references).
-    *   It leverages `ReferenceType.instances(0)` to scan the Heap for instantiated objects belonging to the user's classes, tracking them by `uniqueID()`.
-    *   It queries `java.lang.String` instances to differentiate the String Pool.
-5.  **Trace Serialization**: The extracted state is serialized into a JSON snapshot. The sequence of all snapshots forms the complete execution trace.
-
-### 3. The Frontend (React + Vite + Tailwind)
-The frontend is a purely reactive UI that consumes the JSON trace array:
-*   Once the trace is downloaded, the frontend disconnects from the backend; playback is entirely local and instantaneous without network latency.
-*   State management tracks a `stepIndex`. As this index changes (via the Play button or scrubber), the components (`HeapView`, `CallStackView`, `StringPoolView`, etc.) reactively re-render using the data slice at `trace[stepIndex]`.
-*   The UI is styled using **Tailwind CSS**, featuring a meticulously designed custom dark theme (`bg-surface`, `text-on-surface`, custom accent colors for memory areas) to provide a sleek, IDE-like experience.
+```mermaid
+graph TD
+    Client[React Frontend] <-->|HTTP REST / JSON Traces| Server[Node.js Express Backend]
+    
+    subgraph Backend Subsystems
+        Server -->|1. Compile & Trace| JDI[TraceGenerator.java]
+        Server -->|2. Enrich Trace| Enricher[dryRunEnricher.js]
+        Server -->|3. Generate Sandbox HTML| AI[aiVisualizer.js]
+        
+        JDI -->|Spawns & Inspects| TargetVM[Target JVM Process]
+        AI <-->|SHA-256 Cache Check| Cache[(In-Memory Cache)]
+        AI <-->|Generate Visualizer| Gemini[Google Gemini API]
+    end
+```
 
 ---
 
-## 💻 Running it Locally
+## JVM Execution & JDI Tracing Engine
+
+The core tracing engine resides in `backend/TraceGenerator.java`. Written using the `com.sun.jdi` specification, it acts as a debugger client that launches and monitors a separate target JVM process.
+
+### Tracing Lifecycle & Event Handling
+
+```mermaid
+sequenceDiagram
+    participant B as Express Server
+    participant T as TraceGenerator (Debugger)
+    participant VM as Target JVM (Target VM)
+
+    B->>T: Execute java TraceGenerator Main
+    T->>VM: Launch Target VM (Suspended)
+    T->>VM: Set Event Requests (ClassPrepare, MethodEntry, StepEvent)
+    T->>VM: Resume VM
+    
+    loop Every Line Step Event
+        VM-->>T: Intercept Line Execution (StepEvent)
+        T->>T: Pause VM & Extract Memory Snapshot
+        T->>T: Read Stack Frames & Local Variables
+        T->>T: Scan Heap for Class Instances & Strings
+        T->>VM: Resume VM
+    end
+
+    VM-->>T: VMDisconnect / VMDeath Event
+    T->>B: Emit Complete Execution Trace JSON
+```
+
+### Memory State Extraction
+
+At each `StepEvent`, the engine inspects the target VM state:
+1. **Call Stack (JVM Stacks)**: Iterates over active stack frames per thread. Extracts primitive values and unique object reference identifiers (`@id`).
+2. **Heap Memory**: Leverages `ReferenceType.instances(0)` to track class instances created by the user, recursively inspecting object fields and identifying unreferenced objects eligible for Garbage Collection.
+3. **String Pool**: Scans `java.lang.String` reference instances to isolate string literals from standard heap object allocations.
+4. **Method Area & PC Register**: Captures loaded class metadata, method signatures, line numbers, and current instruction pointers.
+
+---
+
+## AI Visualization Engine
+
+The AI engine (`backend/aiVisualizer.js`) generates interactive visual representations of algorithm states.
+
+### Pipeline & SHA-256 Caching
+
+To prevent redundant LLM invocations and achieve 0ms response times for recurring code runs, the backend implements cryptographic caching:
+
+```mermaid
+flowchart LR
+    Req[POST /api/ai-visualize] --> Hash[Compute SHA-256 Hash of Source Code]
+    Hash --> Check{Exists in Cache?}
+    Check -- Yes (0ms) --> ReturnCached[Return Cached HTML]
+    Check -- No --> CallLLM[Invoke Gemini API]
+    CallLLM --> Store[Store Result in Cache]
+    Store --> ReturnNew[Return Generated HTML]
+```
+
+When a user triggers **Regenerate**, the request targets `/api/ai-visualize/regenerate`, bypassing the cache check to force a new visualization attempt.
+
+### Prompt Engineering & State Constraints
+
+The AI engine uses an extensive system prompt enforcing strict structural and aesthetic guidelines:
+- **Design Tokens**: Enforces dark mode (`#0d1117` surface), 2px border radius, muted monochromatic palettes, and enterprise IDE styling.
+- **State Persistence Rules**: Forces the generated JavaScript loop to maintain historical state outside the `onStepChange` listener. This prevents local counters (e.g. `count`) from resetting to `0` when stack frames return to `main()`.
+- **Component Tracking**: For graph and grid algorithms (e.g., Number of Islands), the visualizer preserves original cell boundaries and highlights component IDs instead of wiping mutated cells to zero.
+
+---
+
+## Security & Rate Limiting System
+
+To defend backend execution resources and manage Gemini API operational costs, JavaFlow implements IP-based rate limiting via `express-rate-limit`.
+
+### Network-Level IP Tracking
+
+All limits are locked strictly to client IP addresses (`req.ip`). This prevents quota evasion through browser switching, Incognito mode, or cookie clearing.
+
+```mermaid
+flowchart TD
+    ClientReq[Incoming HTTP Request] --> Global[Global Limiter: 50 req / 15 min]
+    Global -- Allowed --> RouteCheck{Endpoint?}
+    
+    RouteCheck -- /api/execute or /api/dry-run --> ExecLimit[Execution Limiter: 10 req / min]
+    RouteCheck -- /api/ai-visualize --> DailyAi[Daily AI Limiter: 11 req / 24 hrs]
+    RouteCheck -- /api/ai-visualize/regenerate --> DailyRegen[Daily Regen Limiter: 5 req / 24 hrs]
+    
+    DailyAi --> ShortBurst[Short-term Burst Limiter: 3 req / min]
+    DailyRegen --> ShortBurst
+    
+    ExecLimit -- Pass --> Handler[Route Handler]
+    ShortBurst -- Pass --> Handler
+```
+
+### Quota Configuration & Endpoint Map
+
+| Endpoint | Window | Max Requests | Exposed Headers | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST /api/execute` | 1 minute | 10 | `RateLimit-*` | Standard JVM compilation & trace execution |
+| `POST /api/dry-run` | 1 minute | 10 | `RateLimit-*` | Interactive step-by-step dry run endpoint |
+| `POST /api/ai-visualize` | 24 hours | 11 | `RateLimit-*` | Initial AI Visualizer generation |
+| `POST /api/ai-visualize/regenerate` | 24 hours | 5 | `RateLimit-*` | Forced cache-bypass visualizer regeneration |
+| `GET /api/rate-limit-status` | 24 hours | 11 | `RateLimit-*` | Returns remaining quota on client load |
+
+---
+
+## Frontend Architecture & UI Engine
+
+The frontend is built with React, Vite, and custom CSS design tokens.
+
+### Step Player & Trace Normalizer
+
+The frontend player (`DryRunView.jsx`) consumes execution traces client-side:
+- **Trace Normalizer (`traceNormalizer.js`)**: Sanitizes and indexes step objects, resolving heap object references to construct local variable state trees.
+- **Trace Analyzer (`traceAnalyzer.js`)**: Computes step deltas to highlight variable mutations between step $N-1$ and step $N$.
+- **Local Playback**: Playback controls (Play, Pause, Step Forward/Back, Speed Multiplier) operate on local array memory without network requests.
+
+### Resizable Panel System
+
+The UI uses `react-resizable-panels` to allow customizable view configurations:
+- **Left Panel**: Monaco Code Editor (`CodeEditor.jsx`) configured with custom scrollbar behavior and line-hit indicators.
+- **Center Panel**: Execution metrics, variable tables, call stack frames, and console output.
+- **Right Panel**: AI Visualizer Sandbox (`VisualizerCanvas.jsx` / `AIVisualizerSandbox.jsx`) rendering the generated HTML inside an isolated iframe with bidirectional postMessage support.
+
+---
+
+## Local Development & Setup
 
 ### Prerequisites
-*   **Node.js** (v16+)
-*   **Java Development Kit (JDK)** (v11+). The `javac` and `java` executables must be available in your system `PATH`.
 
-### Setup
+- **Node.js**: `v16.0.0` or higher
+- **Java Development Kit (JDK)**: JDK 11 or higher (`javac` and `java` must be in `PATH`)
+- **Google Gemini API Key**: Required for AI visualization features
 
-1. **Start the Backend:**
-   ```bash
-   cd backend
-   npm install
-   npm start
-   ```
-   *Runs on `http://localhost:4000`*
+### 1. Environment Setup
 
-2. **Start the Frontend:**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   *Runs on `http://localhost:5173` (proxies API requests to port 4000)*
+Create a `.env` file inside `backend/`:
 
-3. **Open your browser** to `http://localhost:5173`. Pick an example from the dropdown or write your own Java code, hit **Run**, and use the transport controls to step through the execution!
+```env
+PORT=4000
+GEMINI_API_KEY=your_gemini_api_key_here
+```
 
----
+### 2. Backend Installation & Run
 
-## 🔮 Supported Java Features
+```bash
+cd backend
+npm install
+npm start
+```
 
-Because JavaFlow relies on real JDI tracing, it supports almost everything you can write in a single file:
-*   Classes, inheritance, and interfaces
-*   Primitives, Wrappers, Arrays, and `String`s
-*   Standard library utilities (Collections, Math, etc. — though exploring deep into library internals is filtered out by default to keep traces readable)
-*   Loops, branches, exceptions, and recursion
-*   Basic multi-threading (creating and starting threads)
+The Express server will start on `http://localhost:4000`.
 
-## 🎨 UI & Theming
+### 3. Frontend Installation & Run
 
-The UI is built using **Tailwind CSS** with a meticulously designed custom dark theme. It features responsive grid layouts, custom typography (`Inter` and `JetBrains Mono`), smooth CSS micro-animations, and distinct color-coding for different memory spaces (e.g., Heap is green, Method Area is orange, Stack is red).
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server will start on `http://localhost:5173`.
 
 ---
 
-## 🤝 Contributing
+## Project Directory Structure
 
-JavaFlow is an open-source project, and contributions are incredibly welcome! Whether it's fixing bugs, improving the UI, or adding new features to the JDI tracing engine, we'd love your help. 
+```
+jvm-visualizer/
+├── backend/
+│   ├── aiVisualizer.js        # Gemini API integration & SHA-256 caching
+│   ├── dryRunEnricher.js      # Trace enrichment & line mapping logic
+│   ├── server.js              # Express API, rate limiters, & route definitions
+│   ├── TraceGenerator.java    # JDI Tracing Engine source
+│   ├── Main.java              # Execution target wrapper
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── components/        # Standard memory panel components
+│   │   ├── features/
+│   │   │   └── dry-run/       # Interactive Dry Run feature module
+│   │   │       ├── components/# VisualizerCanvas, RateLimitPopup, Toolbar, etc.
+│   │   │       └── engines/   # traceNormalizer.js, traceAnalyzer.js, fingerprinter.js
+│   │   ├── App.jsx            # Main app router & layout switcher
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
+```
 
-Please check out our [Contributing Guide](CONTRIBUTING.md) to learn how you can set up the project locally and submit Pull Requests.
+---
 
-## 📄 License
+## Authors & Developers
+
+- **Avinash Mourya** - [GitHub Profile](https://github.com/iamavinashmourya)
+- **Abhinav Chaubey** - [GitHub Profile](https://github.com/abhinavkumar0811)
+
+---
+
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

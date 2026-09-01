@@ -9,35 +9,71 @@ import ConsoleView from './components/ConsoleView.jsx';
 import TutorView from './components/TutorView.jsx';
 import BytecodeView from './components/BytecodeView.jsx';
 import InfoModal from './components/InfoModal.jsx';
+import ComplexityView from './components/ComplexityView.jsx';
+import DryRunView from './features/dry-run/components/DryRunView.jsx';
+import { inferBigO, computeMetrics } from './utils/complexityAnalyzer.js';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
 
 export default function App() {
-  const [exampleName, setExampleName] = useState(DEFAULT_EXAMPLE);
-  const [code, setCode] = useState(EXAMPLES[DEFAULT_EXAMPLE]);
-  const [bytecode, setBytecode] = useState('');
+  // Memory State
+  const [memoryExample, setMemoryExample] = useState(DEFAULT_EXAMPLE);
+  const [memoryCode, setMemoryCode] = useState(EXAMPLES[DEFAULT_EXAMPLE]);
+  const [memoryBytecode, setMemoryBytecode] = useState('');
+  const [memoryTrace, setMemoryTrace] = useState([]);
+
+  // Complexity State
+  const [complexityExample, setComplexityExample] = useState('Default');
+  const [complexityCode, setComplexityCode] = useState('');
+  const [complexityBytecode, setComplexityBytecode] = useState('');
+  const [complexityTrace, setComplexityTrace] = useState([]);
+  
+  // Independent playback states for Memory and Complexity views
+  const [memoryIndex, setMemoryIndex] = useState(0);
+  const [memoryPlaying, setMemoryPlaying] = useState(false);
+  const [complexityIndex, setComplexityIndex] = useState(0);
+  const [complexityPlaying, setComplexityPlaying] = useState(false);
+  const [activeView, setActiveView] = useState(() => localStorage.getItem('activeView') || 'memory');
   const [activeTab, setActiveTab] = useState('source');
-  const [trace, setTrace] = useState([]);
-  const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [switchPrompt, setSwitchPrompt] = useState(null);
+
+  // Aliases for the currently active view
+  const exampleName = activeView === 'memory' ? memoryExample : complexityExample;
+  const setExampleName = activeView === 'memory' ? setMemoryExample : setComplexityExample;
+  const code = activeView === 'memory' ? memoryCode : complexityCode;
+  const setCode = activeView === 'memory' ? setMemoryCode : setComplexityCode;
+  const bytecode = activeView === 'memory' ? memoryBytecode : complexityBytecode;
+  const setBytecode = activeView === 'memory' ? setMemoryBytecode : setComplexityBytecode;
+  const trace = activeView === 'memory' ? memoryTrace : complexityTrace;
+  const setTrace = activeView === 'memory' ? setMemoryTrace : setComplexityTrace;
+
+  const index = activeView === 'memory' ? memoryIndex : complexityIndex;
+  const setIndex = activeView === 'memory' ? setMemoryIndex : setComplexityIndex;
+  const playing = activeView === 'memory' ? memoryPlaying : complexityPlaying;
+  const setPlaying = activeView === 'memory' ? setMemoryPlaying : setComplexityPlaying;
   const [speed, setSpeed] = useState(1200);
   const [error, setError] = useState(null);
   const [infoModal, setInfoModal] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const timerRef = useRef(null);
 
-  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
+  // Compute Big-O and runtime metrics (memoized — only recomputes when code/trace changes)
+  const bigO = useMemo(() => inferBigO(code), [code]);
+  const metrics = useMemo(() => computeMetrics(trace), [trace]);
 
   const current = trace[index] || null;
 
   async function runCode() {
     setLoading(true);
     setError(null);
-    setPlaying(false);
+    setMemoryPlaying(false);
+    setComplexityPlaying(false);
     setTrace([]);
     setBytecode('');
-    setIndex(0);
+    setMemoryIndex(0);
+    setComplexityIndex(0);
     setActiveTab('source');
     if (isEditorExpanded) setIsEditorExpanded(false);
     try {
@@ -77,14 +113,93 @@ export default function App() {
       });
     }, speed);
     return () => clearInterval(timerRef.current);
-  }, [playing, speed, trace.length]);
+  }, [playing, speed, trace.length, activeView]);
 
   function handleExampleChange(name) {
     setExampleName(name);
-    setCode(EXAMPLES[name]);
+    setCode(EXAMPLES[name] || '');
     setTrace([]);
     setIndex(0);
     setError(null);
+  }
+
+  // Force sync mechanism for DryRunView
+  const [dryRunSyncCode, setDryRunSyncCode] = useState(null);
+
+  function handleViewSwitch(targetView) {
+    if (targetView === activeView) return;
+
+    if (activeView === 'dry-run') {
+      setSwitchPrompt({ type: 'leave-dry-run', target: targetView });
+      return;
+    }
+
+    if (targetView === 'dry-run') {
+      setActiveView(targetView);
+      localStorage.setItem('activeView', targetView);
+      return;
+    }
+    
+    const currentCode = activeView === 'memory' ? memoryCode : complexityCode;
+    const targetCode = targetView === 'memory' ? memoryCode : complexityCode;
+    
+    if (currentCode === targetCode || currentCode.trim() === '') {
+      setActiveView(targetView);
+      localStorage.setItem('activeView', targetView);
+      return;
+    }
+
+    setSwitchPrompt({ type: 'sync', target: targetView });
+  }
+
+  function confirmSwitch(action) {
+    if (!switchPrompt) return;
+    const targetView = switchPrompt.target;
+
+    if (switchPrompt.type === 'leave-dry-run') {
+      if (action === 'discard') {
+        setDryRunSyncCode(EXAMPLES[DEFAULT_EXAMPLE] || '');
+      }
+      setActiveView(targetView);
+      localStorage.setItem('activeView', targetView);
+      setSwitchPrompt(null);
+      return;
+    }
+
+    if (action === 'sync') {
+      const currentCode = activeView === 'memory' ? memoryCode : complexityCode;
+      const currentTrace = activeView === 'memory' ? memoryTrace : complexityTrace;
+      const currentBytecode = activeView === 'memory' ? memoryBytecode : complexityBytecode;
+
+      if (targetView === 'complexity') {
+        setComplexityCode(currentCode);
+        setComplexityTrace(currentTrace);
+        setComplexityBytecode(currentBytecode);
+        setComplexityIndex(0);
+      } else {
+        setMemoryCode(currentCode);
+        setMemoryTrace(currentTrace);
+        setMemoryBytecode(currentBytecode);
+        setMemoryIndex(0);
+      }
+    } else if (action === 'fresh') {
+      if (targetView === 'complexity') {
+        setComplexityCode('');
+        setComplexityTrace([]);
+        setComplexityBytecode('');
+        setComplexityIndex(0);
+        setComplexityExample('Default');
+      } else {
+        setMemoryCode('');
+        setMemoryTrace([]);
+        setMemoryBytecode('');
+        setMemoryIndex(0);
+        setMemoryExample('Default');
+      }
+    }
+    setActiveView(targetView);
+    localStorage.setItem('activeView', targetView);
+    setSwitchPrompt(null);
   }
 
   function handleCodeChange(newCode) {
@@ -108,112 +223,250 @@ export default function App() {
             <img src="/logo-full.png" alt="JavaFlow Logo" className="h-11 w-auto object-contain" />
           </div>
           <div className="flex gap-4">
-            <select 
-              className="bg-surface-container-high text-on-surface-variant border border-border-subtle px-2 py-1 rounded text-body-sm outline-none cursor-pointer hover:border-outline"
-              value={exampleName} 
-              onChange={(e) => handleExampleChange(e.target.value)}
-            >
-              {Object.keys(EXAMPLES).map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
+            {activeView !== 'dry-run' && (
+              <select 
+                className="bg-surface-container-high text-on-surface-variant border border-border-subtle px-2 py-1 rounded text-body-sm outline-none cursor-pointer hover:border-outline"
+                value={exampleName} 
+                onChange={(e) => handleExampleChange(e.target.value)}
+              >
+                {Object.keys(EXAMPLES).map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            )}
           </div>
         </div>
         
-        <div className="flex items-center gap-2 flex-1 justify-center max-w-xl">
-          <button onClick={() => { setIndex(0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Reset to Start"><span className="material-symbols-outlined text-[20px] leading-none">skip_previous</span></button>
-          <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Back"><span className="material-symbols-outlined text-[20px] leading-none">navigate_before</span></button>
-          <button onClick={() => setPlaying(p => !p)} className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0 transition-colors" title="Play/Pause">
-            <span className="material-symbols-outlined text-[24px] leading-none">{playing ? 'pause' : 'play_arrow'}</span>
-          </button>
-          <button onClick={() => setIndex(i => Math.min(total - 1, i + 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Forward"><span className="material-symbols-outlined text-[20px] leading-none">navigate_next</span></button>
-          <button onClick={() => { setIndex(total > 0 ? total - 1 : 0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Skip to End"><span className="material-symbols-outlined text-[20px] leading-none">skip_next</span></button>
-          
-          <div className="flex items-center gap-2 ml-4 w-full text-code-sm font-code-sm text-on-surface-variant monospaced-digits">
-            <span className="shrink-0">Step {total > 0 ? index + 1 : 0}/{total}</span>
-            <div className="h-1 bg-surface-container-high flex-1 rounded-full overflow-hidden relative cursor-pointer" onClick={(e) => {
-               if (total === 0) return;
-               const rect = e.currentTarget.getBoundingClientRect();
-               const clickX = e.clientX - rect.left;
-               const newPct = clickX / rect.width;
-               setIndex(Math.floor(newPct * (total - 1)));
-               setPlaying(false);
-            }}>
-              <div className="h-full bg-primary absolute top-0 left-0" style={{ width: `${progressPercent}%` }}></div>
+        {activeView !== 'dry-run' ? (
+          <div className="flex items-center gap-2 flex-1 justify-center max-w-xl">
+            <button onClick={() => { setIndex(0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Reset to Start"><span className="material-symbols-outlined text-[20px] leading-none">skip_previous</span></button>
+            <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Back"><span className="material-symbols-outlined text-[20px] leading-none">navigate_before</span></button>
+            <button onClick={() => setPlaying(p => !p)} className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0 transition-colors" title="Play/Pause">
+              <span className="material-symbols-outlined text-[24px] leading-none">{playing ? 'pause' : 'play_arrow'}</span>
+            </button>
+            <button onClick={() => setIndex(i => Math.min(total - 1, i + 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Forward"><span className="material-symbols-outlined text-[20px] leading-none">navigate_next</span></button>
+            <button onClick={() => { setIndex(total > 0 ? total - 1 : 0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Skip to End"><span className="material-symbols-outlined text-[20px] leading-none">skip_next</span></button>
+            
+            <div className="flex items-center gap-2 ml-4 w-full text-code-sm font-code-sm text-on-surface-variant monospaced-digits">
+              <span className="shrink-0">Step {total > 0 ? index + 1 : 0}/{total}</span>
+              <div className="h-1 bg-surface-container-high flex-1 rounded-full overflow-hidden relative cursor-pointer" onClick={(e) => {
+                 if (total === 0) return;
+                 const rect = e.currentTarget.getBoundingClientRect();
+                 const clickX = e.clientX - rect.left;
+                 const newPct = clickX / rect.width;
+                 setIndex(Math.floor(newPct * (total - 1)));
+                 setPlaying(false);
+              }}>
+                <div className="h-full bg-primary absolute top-0 left-0" style={{ width: `${progressPercent}%` }}></div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex-1"></div>
+        )}
         
         <div className="flex items-center gap-4 shrink-0">
-          <div className="flex items-center gap-2 bg-surface-container px-2 py-1 rounded border border-border-subtle" title="Playback Speed">
-            <span className="material-symbols-outlined text-[16px] text-on-surface-variant">speed</span>
-            <input 
-              type="range" 
-              min="100" 
-              max="2000" 
-              step="100" 
-              value={2100 - speed} 
-              onChange={(e) => setSpeed(2100 - Number(e.target.value))}
-              className="w-20 accent-primary cursor-pointer"
-            />
-            <span className="text-on-surface-variant text-[11px] font-bold w-6 text-right monospaced-digits">
-              {speed === 1200 ? '1x' : (1200 / speed).toFixed(1).replace('.0', '') + 'x'}
-            </span>
+          {activeView !== 'dry-run' && (
+            <div className="flex items-center gap-2 bg-surface-container px-2 py-1 rounded border border-border-subtle" title="Playback Speed">
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">speed</span>
+              <input 
+                type="range" 
+                min="100" 
+                max="2000" 
+                step="100" 
+                value={2100 - speed} 
+                onChange={(e) => setSpeed(2100 - Number(e.target.value))}
+                className="w-20 accent-primary cursor-pointer"
+              />
+              <span className="text-on-surface-variant text-[11px] font-bold w-6 text-right monospaced-digits">
+                {speed === 1200 ? '1x' : (1200 / speed).toFixed(1).replace('.0', '') + 'x'}
+              </span>
+            </div>
+          )}
+          <div className="flex bg-surface-container rounded-lg p-1 border border-border-subtle mr-2">
+            <button 
+              onClick={() => handleViewSwitch('memory')}
+              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'memory' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              Memory
+            </button>
+            <button 
+              onClick={() => handleViewSwitch('complexity')}
+              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'complexity' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              Complexity
+            </button>
+            <button 
+              onClick={() => { setActiveView('dry-run'); localStorage.setItem('activeView', 'dry-run'); }}
+              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors flex items-center gap-1 ${activeView === 'dry-run' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              <span className="material-symbols-outlined text-[12px]">bug_report</span>
+              Dry Run
+            </button>
           </div>
-          <button onClick={() => { setIndex(0); setPlaying(false); }} className="border border-border-subtle hover:border-outline text-on-surface px-3 py-1 rounded text-label-caps font-label-caps transition-colors">Reset</button>
-          <button onClick={runCode} disabled={loading} className="bg-primary text-on-primary hover:bg-primary-fixed transition-colors px-4 py-1 rounded text-label-caps font-label-caps font-bold">
-            {loading ? 'Running...' : 'Run'}
-          </button>
+          {activeView !== 'dry-run' && (
+            <>
+              <button onClick={() => { setIndex(0); setPlaying(false); }} className="border border-border-subtle hover:border-outline text-on-surface px-3 py-1 rounded text-label-caps font-label-caps transition-colors">Reset</button>
+              <button onClick={runCode} disabled={loading} className="bg-primary text-on-primary hover:bg-primary-fixed transition-colors px-4 py-1 rounded text-label-caps font-label-caps font-bold">
+                {loading ? 'Running...' : 'Run'}
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
-      <main className="flex-1 flex gap-gutter p-gutter overflow-hidden bg-surface-container-lowest">
-        <section className={`flex flex-col gap-gutter h-full transition-all duration-300 ${isEditorExpanded ? 'w-full' : 'w-[40%]'}`}>
-          <div className="bg-surface border border-border-subtle rounded-lg flex-1 flex flex-col overflow-hidden shadow-sm">
-            <div className="bg-surface-container border-b border-border-subtle px-panel-padding py-2 flex items-center justify-between">
-              <div className="text-label-caps font-label-caps text-on-surface-variant uppercase tracking-wider flex gap-4">
-                <button onClick={() => setActiveTab('source')} className={activeTab === 'source' ? "text-on-surface border-b border-on-surface pb-1" : "opacity-50 hover:opacity-100 transition-opacity"}>Source Code (.java)</button>
-                <button onClick={() => setActiveTab('bytecode')} className={activeTab === 'bytecode' ? "text-on-surface border-b border-on-surface pb-1" : "opacity-50 hover:opacity-100 transition-opacity"}>Bytecode (.class)</button>
-              </div>
-              <div className="flex items-center gap-1 text-on-surface-variant">
-                <button onClick={() => setCode(EXAMPLES[exampleName])} className="hover:text-on-surface w-7 h-7 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors" title="Reset Code">
-                  <span className="material-symbols-outlined text-[18px] leading-none">refresh</span>
-                </button>
-                <button onClick={() => setIsEditorExpanded(e => !e)} className="hover:text-on-surface w-7 h-7 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors" title={isEditorExpanded ? "Collapse" : "Expand Fullscreen"}>
-                  <span className="material-symbols-outlined text-[18px] leading-none">{isEditorExpanded ? 'fullscreen_exit' : 'fullscreen'}</span>
-                </button>
-                <div className="w-[1px] h-4 bg-border-subtle mx-1"></div>
-                <span className="material-symbols-outlined text-[18px] leading-none ml-1" title="Code Editor">code</span>
-              </div>
-            </div>
-            
-            {activeTab === 'source' ? (
-              <CodeEditor code={code} setCode={handleCodeChange} activeLine={activeLine} />
-            ) : (
-              <BytecodeView bytecode={bytecode} />
-            )}
-          </div>
-          
-          {error && <div className="bg-error-container text-error p-4 rounded-lg text-body-sm font-code-sm whitespace-pre-wrap">{error}</div>}
-          <TutorView prev={trace[index - 1]} curr={current} activeLine={activeLine} />
-          <ConsoleView lines={current?.stdout || []} />
-        </section>
-
-        {!isEditorExpanded && (
+      <main className={`flex-1 flex gap-gutter overflow-hidden bg-surface-container-lowest ${activeView === 'dry-run' ? 'p-0' : 'p-gutter'}`}>
+        {activeView === 'memory' ? (
           <>
-            <section className="flex flex-col gap-gutter w-[30%] h-full">
-              <MethodAreaView methodArea={current?.methodArea || {}} onInfoClick={() => setInfoModal('METHOD_AREA')} />
-              <HeapView heap={current?.heap || {}} stringPool={current?.stringPool || {}} onInfoClick={() => setInfoModal('HEAP')} />
-              <PCRegisterView activeLine={activeLine} onInfoClick={() => setInfoModal('PC_REGISTER')} />
+            <section className={`flex flex-col gap-gutter h-full transition-all duration-300 ${isEditorExpanded ? 'w-full' : 'w-[40%]'}`}>
+              <div className="bg-surface border border-border-subtle rounded-lg flex-1 flex flex-col overflow-hidden shadow-sm">
+                <div className="bg-surface-container border-b border-border-subtle px-panel-padding py-2 flex items-center justify-between">
+                  <div className="text-label-caps font-label-caps text-on-surface-variant uppercase tracking-wider flex gap-4">
+                    <button onClick={() => setActiveTab('source')} className={activeTab === 'source' ? "text-on-surface border-b border-on-surface pb-1" : "opacity-50 hover:opacity-100 transition-opacity"}>Source Code (.java)</button>
+                    <button onClick={() => setActiveTab('bytecode')} className={activeTab === 'bytecode' ? "text-on-surface border-b border-on-surface pb-1" : "opacity-50 hover:opacity-100 transition-opacity"}>Bytecode (.class)</button>
+                  </div>
+                  <div className="flex items-center gap-1 text-on-surface-variant">
+                    <button onClick={() => setCode(EXAMPLES[exampleName])} className="hover:text-on-surface w-7 h-7 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors" title="Reset Code">
+                      <span className="material-symbols-outlined text-[18px] leading-none">refresh</span>
+                    </button>
+                    <button onClick={() => setIsEditorExpanded(e => !e)} className="hover:text-on-surface w-7 h-7 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors" title={isEditorExpanded ? "Collapse" : "Expand Fullscreen"}>
+                      <span className="material-symbols-outlined text-[18px] leading-none">{isEditorExpanded ? 'fullscreen_exit' : 'fullscreen'}</span>
+                    </button>
+                    <div className="w-[1px] h-4 bg-border-subtle mx-1"></div>
+                    <span className="material-symbols-outlined text-[18px] leading-none ml-1" title="Code Editor">code</span>
+                  </div>
+                </div>
+                
+                {activeTab === 'source' ? (
+                  <CodeEditor code={code} setCode={handleCodeChange} activeLine={activeLine} lineHits={metrics.lineHits} />
+                ) : (
+                  <BytecodeView bytecode={bytecode} />
+                )}
+              </div>
+              
+              {error && <div className="bg-error-container text-error p-4 rounded-lg text-body-sm font-code-sm whitespace-pre-wrap">{error}</div>}
+              <TutorView prev={trace[index - 1]} curr={current} activeLine={activeLine} />
+              <ConsoleView lines={current?.stdout || []} />
             </section>
 
-            <section className="flex flex-col gap-gutter w-[30%] h-full">
-              <CallStackView currentThread={activeThread} onInfoClick={() => setInfoModal('CALL_STACK')} />
-              <ThreadsView threads={current?.threads || {}} activeThreadId={current?.threadId} onInfoClick={() => setInfoModal('THREADS')} />
-            </section>
+            {!isEditorExpanded && (
+              <>
+                <section className="flex flex-col gap-gutter w-[30%] h-full">
+                  <MethodAreaView methodArea={current?.methodArea || {}} onInfoClick={() => setInfoModal('METHOD_AREA')} />
+                  <HeapView heap={current?.heap || {}} stringPool={current?.stringPool || {}} onInfoClick={() => setInfoModal('HEAP')} />
+                  <PCRegisterView activeLine={activeLine} onInfoClick={() => setInfoModal('PC_REGISTER')} />
+                </section>
+
+                <section className="flex flex-col gap-gutter w-[30%] h-full">
+                  <CallStackView currentThread={activeThread} onInfoClick={() => setInfoModal('CALL_STACK')} />
+                  <ThreadsView threads={current?.threads || {}} activeThreadId={current?.threadId} onInfoClick={() => setInfoModal('THREADS')} />
+                </section>
+              </>
+            )}
           </>
+        ) : activeView === 'complexity' ? (
+          <ComplexityView
+            code={code}
+            setCode={handleCodeChange}
+            bigO={bigO}
+            metrics={metrics}
+            trace={trace}
+            currentIndex={index}
+            setCurrentIndex={setIndex}
+            playing={playing}
+            setPlaying={setPlaying}
+          />
+        ) : (
+          <DryRunView initialCode={code} forceSyncCode={dryRunSyncCode} setForceSyncCode={setDryRunSyncCode} />
         )}
       </main>
       
       <InfoModal type={infoModal} onClose={() => setInfoModal(null)} />
+
+      {/* View Switch Prompt Modal */}
+      {switchPrompt && switchPrompt.type === 'leave-dry-run' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl shadow-2xl p-6 w-[400px] flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <span className="material-symbols-outlined text-[20px]">save</span>
+              </div>
+              <div>
+                <h3 className="text-on-surface font-bold text-lg leading-tight">Save Code?</h3>
+                <p className="text-on-surface-variant text-body-sm mt-1">
+                  You are switching away from Dry Run.
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-on-surface-variant text-[13px] leading-relaxed">
+              Do you want to save your current Dry Run code so it's here when you return, or discard it?
+            </p>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button 
+                onClick={() => setSwitchPrompt(null)}
+                className="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold mr-auto"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => confirmSwitch('discard')}
+                className="px-4 py-2 rounded-lg border border-border-subtle text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold"
+              >
+                Don't Save
+              </button>
+              <button 
+                onClick={() => confirmSwitch('save')}
+                className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed transition-colors text-label-caps font-bold"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {switchPrompt && switchPrompt.type === 'sync' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl shadow-2xl p-6 w-[400px] flex flex-col gap-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <span className="material-symbols-outlined text-[20px]">content_copy</span>
+              </div>
+              <div>
+                <h3 className="text-on-surface font-bold text-lg leading-tight">Sync Code?</h3>
+                <p className="text-on-surface-variant text-body-sm mt-1">
+                  You are switching to {switchPrompt.target === 'memory' ? 'Memory Management' : 'Complexity Analysis'}.
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-on-surface-variant text-[13px] leading-relaxed">
+              The target view has different code. Do you want to bring your current code and trace into the new view, or start fresh?
+            </p>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button 
+                onClick={() => setSwitchPrompt(null)}
+                className="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold mr-auto"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => confirmSwitch('fresh')}
+                className="px-4 py-2 rounded-lg border border-border-subtle text-on-surface hover:bg-surface-container transition-colors text-label-caps font-bold"
+              >
+                Start Fresh
+              </button>
+              <button 
+                onClick={() => confirmSwitch('sync')}
+                className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed transition-colors text-label-caps font-bold"
+              >
+                Copy Code Over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
