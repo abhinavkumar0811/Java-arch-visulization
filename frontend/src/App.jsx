@@ -10,6 +10,7 @@ import TutorView from './components/TutorView.jsx';
 import BytecodeView from './components/BytecodeView.jsx';
 import InfoModal from './components/InfoModal.jsx';
 import ComplexityView from './components/ComplexityView.jsx';
+import MobileNotice from './components/MobileNotice.jsx';
 import DryRunView from './features/dry-run/components/DryRunView.jsx';
 import { inferBigO, computeMetrics } from './utils/complexityAnalyzer.js';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
@@ -385,6 +386,7 @@ export default function App() {
       </main>
       
       <InfoModal type={infoModal} onClose={() => setInfoModal(null)} />
+      <MobileNotice />
 
       {/* View Switch Prompt Modal */}
 
