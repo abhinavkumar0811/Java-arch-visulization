@@ -13,8 +13,7 @@ import ComplexityView from './components/ComplexityView.jsx';
 import DryRunView from './features/dry-run/components/DryRunView.jsx';
 import { inferBigO, computeMetrics } from './utils/complexityAnalyzer.js';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+import { API_BASE } from './config/api.js';
 
 export default function App() {
   // Memory State

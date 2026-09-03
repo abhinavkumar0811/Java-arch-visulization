@@ -7,8 +7,7 @@ import VisualizerCanvas from './VisualizerCanvas.jsx';
 import CodeEditor from '../../../components/CodeEditor.jsx';
 import RateLimitPopup from './RateLimitPopup.jsx';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+import { API_BASE } from '../../../config/api.js';
 
 // ─── Variable Panel ───────────────────────────────────────────────────────────
 function VariablePanel({ variables = {}, prevVariables = {} }) {
