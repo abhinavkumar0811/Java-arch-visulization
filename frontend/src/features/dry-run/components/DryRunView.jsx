@@ -335,7 +335,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
       return true;
     } catch (err) {
       console.error('AI visualize error:', err);
-      setError(err.message || 'Failed to generate visualizer');
+      // AI generation failure should not block or show as code execution failure
       return false;
     } finally {
       setIsGeneratingAi(false);
@@ -366,14 +366,10 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
       } else {
         const normalized = normalizeTrace(data.trace);
         setTrace(normalized);
+        setIsPlaying(true);
 
-        // Auto-generate AI visualizer on successful run (wait for it to finish)
-        const success = await handleGenerateAi(normalized, false);
-        
-        // Start playback ONLY if visualizer successfully generated
-        if (success) {
-          setIsPlaying(true);
-        }
+        // Generate AI visualizer concurrently
+        handleGenerateAi(normalized, false);
       }
     } catch (e) {
       setError('Cannot reach backend. Is it running?');
