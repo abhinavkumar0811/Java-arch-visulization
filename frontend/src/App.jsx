@@ -11,8 +11,10 @@ import BytecodeView from './components/BytecodeView.jsx';
 import InfoModal from './components/InfoModal.jsx';
 import ComplexityView from './components/ComplexityView.jsx';
 import MobileNotice from './components/MobileNotice.jsx';
+import ExecutionErrorNotice from './components/ExecutionErrorNotice.jsx';
 import DryRunView from './features/dry-run/components/DryRunView.jsx';
 import { inferBigO, computeMetrics } from './utils/complexityAnalyzer.js';
+import { validateJavaCode } from './utils/languageDetector.js';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
 import { API_BASE } from './config/api.js';
 
@@ -66,6 +68,12 @@ export default function App() {
   const current = trace[index] || null;
 
   async function runCode() {
+    const langCheck = validateJavaCode(code);
+    if (!langCheck.isSupported) {
+      setError(langCheck.message);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setMemoryPlaying(false);
@@ -348,7 +356,7 @@ export default function App() {
                 )}
               </div>
               
-              {error && <div className="bg-error-container text-error p-4 rounded-lg text-body-sm font-code-sm whitespace-pre-wrap">{error}</div>}
+              {error && <ExecutionErrorNotice error={error} code={code} onDismiss={() => setError(null)} />}
               <TutorView prev={trace[index - 1]} curr={current} activeLine={activeLine} />
               <ConsoleView lines={current?.stdout || []} />
             </section>

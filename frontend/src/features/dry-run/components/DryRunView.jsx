@@ -8,6 +8,8 @@ import CodeEditor from '../../../components/CodeEditor.jsx';
 import RateLimitPopup from './RateLimitPopup.jsx';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { API_BASE } from '../../../config/api.js';
+import { validateJavaCode } from '../../../utils/languageDetector.js';
+import ExecutionErrorNotice from '../../../components/ExecutionErrorNotice.jsx';
 
 // ─── Variable Panel ───────────────────────────────────────────────────────────
 function VariablePanel({ variables = {}, prevVariables = {} }) {
@@ -341,6 +343,12 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
   }, [code, API_BASE]);
 
   const handleRun = useCallback(async () => {
+    const langCheck = validateJavaCode(code);
+    if (!langCheck.isSupported) {
+      setError(langCheck.message);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setTrace([]);
@@ -417,8 +425,8 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
           </div>
           <CodeEditor code={code} setCode={setCode} activeLine={activeLine} lineHits={null} />
           {error && (
-            <div className="bg-[#da3633]/10 border-t border-[#da3633]/30 px-4 py-3 text-[#da3633] text-[12px] font-mono whitespace-pre-wrap max-h-[120px] overflow-auto">
-              {error}
+            <div className="p-3 bg-[#0d1117] border-t border-[#30363d]">
+              <ExecutionErrorNotice error={error} code={code} onDismiss={() => setError(null)} />
             </div>
           )}
         </Panel>
