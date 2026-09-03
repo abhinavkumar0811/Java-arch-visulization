@@ -12,8 +12,11 @@ RUN npm install --only=production
 # Copy application source files
 COPY . .
 
-EXPOSE 4000
+# Compile TraceGenerator with container's OpenJDK
+RUN javac -g TraceGenerator.java
 
-ENV PORT=4000
+EXPOSE 80 4000
+
+ENV PORT=80
 
 CMD ["node", "server.js"]

@@ -264,5 +264,19 @@ app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime
 app.get('/healthz', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 app.get('/api/health', (req, res) => res.json({ ok: true, status: 'ok' }));
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`JVM Visualizer API running on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 80;
+const server = app.listen(PORT, () => console.log(`JVM Visualizer API running on http://localhost:${PORT}`));
+
+// Also listen on port 80 if PORT is set to 4000, so AWS ALB target group health checks always pass
+if (Number(PORT) !== 80) {
+  try {
+    const http = require('http');
+    const server80 = http.createServer(app);
+    server80.on('error', (err) => {
+      // Gracefully ignore if port 80 is unavailable or in use locally
+    });
+    server80.listen(80, () => {
+      console.log(`JVM Visualizer API also listening on port 80 for AWS ALB`);
+    });
+  } catch (e) {}
+}
