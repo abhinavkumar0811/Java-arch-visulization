@@ -211,37 +211,45 @@ export default function App() {
 
   return (
     <div style={{ '--speed-mult': speed / 1200 }} className="flex flex-col h-screen w-screen overflow-hidden bg-surface-container-lowest">
-      <nav className="flex justify-between items-center w-full px-grid-margin h-14 z-50 bg-surface border-b border-border-subtle shrink-0 overflow-x-auto overflow-y-hidden">
-        <div className="flex items-center gap-4 shrink-0">
+      <nav className="flex justify-between items-center w-full px-3 sm:px-5 h-14 z-50 bg-surface border-b border-border-subtle shrink-0 gap-2">
+        {/* LEFT: Logo + Example Selector */}
+        <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
           <div className="flex items-center">
-            <img src="/logo-full.png" alt="JavaFlow Logo" className="h-10 sm:h-11 w-auto object-contain" />
+            <img src="/logo-full.png" alt="JavaFlow Logo" className="h-8 sm:h-9 w-auto object-contain" />
           </div>
-          <div className="flex gap-2 sm:gap-4">
-            {activeView !== 'dry-run' && (
-              <select 
-                className="bg-surface-container-high text-on-surface-variant border border-border-subtle px-2 py-1 rounded text-body-sm outline-none cursor-pointer hover:border-outline max-w-[160px] truncate"
-                value={exampleName} 
-                onChange={(e) => handleExampleChange(e.target.value)}
-              >
-                {Object.keys(EXAMPLES).map((name) => <option key={name} value={name}>{name}</option>)}
-              </select>
-            )}
-          </div>
+          {activeView !== 'dry-run' && (
+            <select 
+              className="bg-surface-container text-on-surface border border-border-subtle px-2.5 py-1 rounded-lg text-[12px] outline-none cursor-pointer hover:border-outline transition-colors shrink-0"
+              value={exampleName} 
+              onChange={(e) => handleExampleChange(e.target.value)}
+            >
+              {Object.keys(EXAMPLES).map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          )}
         </div>
         
-        {activeView !== 'dry-run' ? (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center min-w-[180px] max-w-md mx-2 sm:mx-4 shrink">
-            <button onClick={() => { setIndex(0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Reset to Start"><span className="material-symbols-outlined text-[20px] leading-none">skip_previous</span></button>
-            <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Back"><span className="material-symbols-outlined text-[20px] leading-none">navigate_before</span></button>
-            <button onClick={() => setPlaying(p => !p)} className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0 transition-colors" title="Play/Pause">
-              <span className="material-symbols-outlined text-[24px] leading-none">{playing ? 'pause' : 'play_arrow'}</span>
+        {/* CENTER: Step Controls & Progress */}
+        {activeView !== 'dry-run' && (
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 mx-1 sm:mx-2">
+            <button onClick={() => { setIndex(0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors shrink-0" title="Reset to Start">
+              <span className="material-symbols-outlined text-[18px]">skip_previous</span>
             </button>
-            <button onClick={() => setIndex(i => Math.min(total - 1, i + 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Forward"><span className="material-symbols-outlined text-[20px] leading-none">navigate_next</span></button>
-            <button onClick={() => { setIndex(total > 0 ? total - 1 : 0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Skip to End"><span className="material-symbols-outlined text-[20px] leading-none">skip_next</span></button>
+            <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="text-on-surface-variant hover:text-on-surface w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors shrink-0" title="Step Back">
+              <span className="material-symbols-outlined text-[18px]">navigate_before</span>
+            </button>
+            <button onClick={() => setPlaying(p => !p)} className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center transition-colors shrink-0" title={playing ? 'Pause' : 'Play'}>
+              <span className="material-symbols-outlined text-[22px]">{playing ? 'pause' : 'play_arrow'}</span>
+            </button>
+            <button onClick={() => setIndex(i => Math.min(total - 1, i + 1))} className="text-on-surface-variant hover:text-on-surface w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors shrink-0" title="Step Forward">
+              <span className="material-symbols-outlined text-[18px]">navigate_next</span>
+            </button>
+            <button onClick={() => { setIndex(total > 0 ? total - 1 : 0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors shrink-0" title="Skip to End">
+              <span className="material-symbols-outlined text-[18px]">skip_next</span>
+            </button>
             
-            <div className="flex items-center gap-2 ml-2 min-w-[120px] flex-1 text-code-sm font-code-sm text-on-surface-variant monospaced-digits">
-              <span className="shrink-0 text-[11px] sm:text-[12px]">Step {total > 0 ? index + 1 : 0}/{total}</span>
-              <div className="h-1 bg-surface-container-high flex-1 rounded-full overflow-hidden relative cursor-pointer" onClick={(e) => {
+            <div className="flex items-center gap-2 ml-1 text-code-sm font-code-sm text-on-surface-variant monospaced-digits shrink-0">
+              <span className="shrink-0 text-[11px]">Step {total > 0 ? index + 1 : 0}/{total}</span>
+              <div className="h-1 bg-surface-container-high w-14 sm:w-20 md:w-28 rounded-full overflow-hidden relative cursor-pointer hidden sm:block" onClick={(e) => {
                  if (total === 0) return;
                  const rect = e.currentTarget.getBoundingClientRect();
                  const clickX = e.clientX - rect.left;
@@ -253,14 +261,13 @@ export default function App() {
               </div>
             </div>
           </div>
-        ) : (
-          <div className="flex-1"></div>
         )}
         
-        <div className="flex items-center gap-4 shrink-0">
+        {/* RIGHT: Speed + View Switcher + Reset + Run */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {activeView !== 'dry-run' && (
-            <div className="flex items-center gap-2 bg-surface-container px-2 py-1 rounded border border-border-subtle" title="Playback Speed">
-              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">speed</span>
+            <div className="hidden lg:flex items-center gap-1.5 bg-surface-container px-2 py-1 rounded-lg border border-border-subtle shrink-0" title="Playback Speed">
+              <span className="material-symbols-outlined text-[15px] text-on-surface-variant">speed</span>
               <input 
                 type="range" 
                 min="100" 
@@ -268,41 +275,45 @@ export default function App() {
                 step="100" 
                 value={2100 - speed} 
                 onChange={(e) => setSpeed(2100 - Number(e.target.value))}
-                className="w-20 accent-primary cursor-pointer"
+                className="w-16 accent-primary cursor-pointer"
               />
-              <span className="text-on-surface-variant text-[11px] font-bold w-6 text-right monospaced-digits">
+              <span className="text-on-surface-variant text-[11px] font-bold w-5 text-right monospaced-digits">
                 {speed === 1200 ? '1x' : (1200 / speed).toFixed(1).replace('.0', '') + 'x'}
               </span>
             </div>
           )}
-          <div className="flex bg-surface-container rounded-lg p-1 border border-border-subtle mr-2">
+          
+          <div className="flex bg-surface-container rounded-lg p-0.5 border border-border-subtle shrink-0">
             <button 
               onClick={() => handleViewSwitch('memory')}
-              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'memory' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-2.5 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'memory' ? 'bg-surface shadow text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
               Memory
             </button>
             <button 
               onClick={() => handleViewSwitch('complexity')}
-              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'complexity' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-2.5 py-1 rounded text-label-caps font-label-caps transition-colors ${activeView === 'complexity' ? 'bg-surface shadow text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
               Complexity
             </button>
             <button 
               onClick={() => { setActiveView('dry-run'); localStorage.setItem('activeView', 'dry-run'); }}
-              className={`px-3 py-1 rounded text-label-caps font-label-caps transition-colors flex items-center gap-1 ${activeView === 'dry-run' ? 'bg-surface shadow text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              className={`px-2.5 py-1 rounded text-label-caps font-label-caps transition-colors flex items-center gap-1 ${activeView === 'dry-run' ? 'bg-surface shadow text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
             >
               <span className="material-symbols-outlined text-[12px]">bug_report</span>
               Dry Run
             </button>
           </div>
+
           {activeView !== 'dry-run' && (
-            <>
-              <button onClick={() => { setIndex(0); setPlaying(false); }} className="border border-border-subtle hover:border-outline text-on-surface px-3 py-1 rounded text-label-caps font-label-caps transition-colors">Reset</button>
-              <button onClick={runCode} disabled={loading} className="bg-primary text-on-primary hover:bg-primary-fixed transition-colors px-4 py-1 rounded text-label-caps font-label-caps font-bold">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => { setIndex(0); setPlaying(false); }} className="border border-border-subtle hover:border-outline text-on-surface px-2.5 py-1 rounded text-label-caps font-label-caps transition-colors shrink-0">
+                Reset
+              </button>
+              <button onClick={runCode} disabled={loading} className="bg-primary text-on-primary hover:bg-primary-fixed transition-colors px-3.5 py-1 rounded text-label-caps font-label-caps font-bold shrink-0 shadow-xs">
                 {loading ? 'Running...' : 'Run'}
               </button>
-            </>
+            </div>
           )}
         </div>
       </nav>
