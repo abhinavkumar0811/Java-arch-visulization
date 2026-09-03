@@ -211,15 +211,15 @@ export default function App() {
 
   return (
     <div style={{ '--speed-mult': speed / 1200 }} className="flex flex-col h-screen w-screen overflow-hidden bg-surface-container-lowest">
-      <nav className="flex justify-between items-center w-full px-grid-margin h-14 z-50 bg-surface border-b border-border-subtle shrink-0">
-        <div className="flex items-center gap-6">
+      <nav className="flex justify-between items-center w-full px-grid-margin h-14 z-50 bg-surface border-b border-border-subtle shrink-0 overflow-x-auto overflow-y-hidden">
+        <div className="flex items-center gap-4 shrink-0">
           <div className="flex items-center">
-            <img src="/logo-full.png" alt="JavaFlow Logo" className="h-11 w-auto object-contain" />
+            <img src="/logo-full.png" alt="JavaFlow Logo" className="h-10 sm:h-11 w-auto object-contain" />
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-2 sm:gap-4">
             {activeView !== 'dry-run' && (
               <select 
-                className="bg-surface-container-high text-on-surface-variant border border-border-subtle px-2 py-1 rounded text-body-sm outline-none cursor-pointer hover:border-outline"
+                className="bg-surface-container-high text-on-surface-variant border border-border-subtle px-2 py-1 rounded text-body-sm outline-none cursor-pointer hover:border-outline max-w-[160px] truncate"
                 value={exampleName} 
                 onChange={(e) => handleExampleChange(e.target.value)}
               >
@@ -230,7 +230,7 @@ export default function App() {
         </div>
         
         {activeView !== 'dry-run' ? (
-          <div className="flex items-center gap-2 flex-1 justify-center max-w-xl">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center min-w-[180px] max-w-md mx-2 sm:mx-4 shrink">
             <button onClick={() => { setIndex(0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Reset to Start"><span className="material-symbols-outlined text-[20px] leading-none">skip_previous</span></button>
             <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Back"><span className="material-symbols-outlined text-[20px] leading-none">navigate_before</span></button>
             <button onClick={() => setPlaying(p => !p)} className="bg-primary/10 text-primary hover:bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center shrink-0 transition-colors" title="Play/Pause">
@@ -239,8 +239,8 @@ export default function App() {
             <button onClick={() => setIndex(i => Math.min(total - 1, i + 1))} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Step Forward"><span className="material-symbols-outlined text-[20px] leading-none">navigate_next</span></button>
             <button onClick={() => { setIndex(total > 0 ? total - 1 : 0); setPlaying(false); }} className="text-on-surface-variant hover:text-on-surface shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors" title="Skip to End"><span className="material-symbols-outlined text-[20px] leading-none">skip_next</span></button>
             
-            <div className="flex items-center gap-2 ml-4 w-full text-code-sm font-code-sm text-on-surface-variant monospaced-digits">
-              <span className="shrink-0">Step {total > 0 ? index + 1 : 0}/{total}</span>
+            <div className="flex items-center gap-2 ml-2 min-w-[120px] flex-1 text-code-sm font-code-sm text-on-surface-variant monospaced-digits">
+              <span className="shrink-0 text-[11px] sm:text-[12px]">Step {total > 0 ? index + 1 : 0}/{total}</span>
               <div className="h-1 bg-surface-container-high flex-1 rounded-full overflow-hidden relative cursor-pointer" onClick={(e) => {
                  if (total === 0) return;
                  const rect = e.currentTarget.getBoundingClientRect();

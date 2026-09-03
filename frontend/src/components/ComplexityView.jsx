@@ -127,6 +127,27 @@ function Chart({ data, color, label, currentIndex, onStepHover, height = 120 }) 
   );
 }
 
+// Helper to format variables cleanly without [object Object]
+function formatVarValue(v) {
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'object') {
+    if (Array.isArray(v)) {
+      if (v.length === 0) return '[]';
+      return `[${v.map(formatVarValue).join(', ')}]`;
+    }
+    if (v.value !== undefined) return formatVarValue(v.value);
+    if (v.name) return String(v.name);
+    if (v.type === 'reference') return `ref#${v.id ?? ''}`;
+    try {
+      const s = JSON.stringify(v);
+      return s.length > 20 ? s.slice(0, 20) + '…' : s;
+    } catch {
+      return '{...}';
+    }
+  }
+  return String(v);
+}
+
 // ─── Simplified Step-by-step Math Panel ──────────────────────────────────────
 function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard }) {
   if (!metrics || metrics.totalOperations === 0) {
@@ -154,33 +175,36 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
   const currentVars = topFrame?.vars || {};
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto pr-2">
+    <div className="flex flex-col gap-4 min-w-0">
       {/* ── Quick Stats Grid ── */}
-      <div className="grid grid-cols-2 gap-3 mb-2">
-        <div className="bg-surface-container rounded-xl p-3 border border-border-subtle">
-          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Time Complexity</div>
-          <div className="text-[20px] font-bold" style={{ color: bigO?.timeColor || '#10B981' }}>{bigO?.time ?? 'O(?)'}</div>
+      <div className="grid grid-cols-2 gap-2.5 mb-1">
+        <div className="bg-surface-container rounded-xl p-3 border border-border-subtle min-w-0">
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1 truncate">Time Complexity</div>
+          <div className="text-[18px] sm:text-[20px] font-bold truncate" style={{ color: bigO?.timeColor || '#10B981' }}>{bigO?.time ?? 'O(?)'}</div>
         </div>
-        <div className="bg-surface-container rounded-xl p-3 border border-border-subtle">
-          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Space Complexity</div>
-          <div className="text-[20px] font-bold" style={{ color: bigO?.spaceColor || '#8B5CF6' }}>{bigO?.space ?? 'O(?)'}</div>
+        <div className="bg-surface-container rounded-xl p-3 border border-border-subtle min-w-0">
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1 truncate">Space Complexity</div>
+          <div className="text-[18px] sm:text-[20px] font-bold truncate" style={{ color: bigO?.spaceColor || '#8B5CF6' }}>{bigO?.space ?? 'O(?)'}</div>
         </div>
       </div>
 
       {/* ── Current Execution State ── */}
-      <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-        <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Currently Executing</div>
-        <div className="text-on-surface mb-2 font-code-sm text-[13px]">
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-3.5 min-w-0">
+        <div className="text-[11px] text-on-surface-variant uppercase tracking-widest mb-1.5 font-bold">Currently Executing</div>
+        <div className="text-on-surface mb-1 font-code-sm text-[13px] font-bold">
           Step {step + 1} of {total}
         </div>
         {Object.keys(currentVars).length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-primary/10">
-            {Object.entries(currentVars).slice(0, 8).map(([k, v]) => (
-              <span key={k} className="text-[11px] font-code-sm bg-surface px-2 py-1 rounded border border-border-subtle flex items-center gap-1.5">
-                <span className="text-on-surface-variant">{k}</span>
-                <span className="text-primary font-bold">{String(v).slice(0, 20)}</span>
-              </span>
-            ))}
+          <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-primary/10">
+            {Object.entries(currentVars).slice(0, 10).map(([k, v]) => {
+              const displayVal = formatVarValue(v);
+              return (
+                <span key={k} className="text-[11px] font-code-sm bg-surface px-2 py-1 rounded border border-border-subtle flex items-center gap-1.5 max-w-full shadow-xs">
+                  <span className="text-on-surface-variant shrink-0">{k}</span>
+                  <span className="text-primary font-bold truncate max-w-[130px]">{displayVal}</span>
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
@@ -234,9 +258,9 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
         <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Mathematical Calculation</div>
         <div className="bg-surface-container rounded-xl p-4 border border-border-subtle flex flex-col gap-4">
           {/* Theoretical Model */}
-          <div className="flex flex-col gap-1.5 pb-4 border-b border-border-subtle">
-            <span className="text-on-surface-variant text-[11px] uppercase tracking-wider font-bold">Theoretical Model</span>
-            <span className="text-primary font-code-sm text-[13px] font-bold tracking-wide">
+          <div className="flex flex-col gap-1.5 pb-3 border-b border-border-subtle min-w-0">
+            <span className="text-on-surface-variant text-[10px] uppercase tracking-wider font-bold">Theoretical Model</span>
+            <span className="text-primary font-code-sm text-[12px] sm:text-[13px] font-bold tracking-wide break-words">
               {bigO?.time === 'O(1)' && "T(n) = c  (Constant)"}
               {bigO?.time === 'O(n)' && "T(n) = c₁·n + c₂  (Linear)"}
               {bigO?.time === 'O(n²)' && "T(n) = c₁·n² + c₂·n + c₃  (Quadratic)"}
@@ -249,14 +273,14 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
           </div>
 
           {/* Step-by-Step accumulation */}
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <span className="text-on-surface-variant text-[11px] uppercase tracking-wider font-bold">Time (t)</span>
-              <span className="text-on-surface font-code-sm text-[13px]">Step {step + 1}</span>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex justify-between items-center text-[11px] sm:text-[12px]">
+              <span className="text-on-surface-variant uppercase tracking-wider font-bold">Time (t)</span>
+              <span className="text-on-surface font-code-sm font-bold">Step {step + 1}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <span className="text-on-surface-variant text-[11px] uppercase tracking-wider font-bold">Live Function</span>
-              <div className="bg-surface px-3 py-1.5 rounded-lg border border-border-subtle flex items-center gap-2 font-code-sm text-[13px] shadow-sm">
+              <div className="bg-surface px-2.5 py-1 rounded-lg border border-border-subtle flex items-center gap-1.5 font-code-sm text-[12px] shadow-xs">
                 <span className="text-primary font-bold">f(t)</span>
                 <span className="text-on-surface-variant">=</span>
                 <span className="text-green-400 font-bold">{ops} ops</span>
@@ -266,22 +290,16 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
           
           {/* Variables acting as N */}
           {Object.keys(currentVars).length > 0 && (
-            <div className="pt-4 border-t border-border-subtle">
-              <div className="text-[11px] text-on-surface-variant uppercase tracking-wider font-bold mb-3">Variables influencing 'n'</div>
-              <div className="flex flex-wrap gap-2">
+            <div className="pt-3 border-t border-border-subtle min-w-0">
+              <div className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold mb-2">Variables influencing 'n'</div>
+              <div className="flex flex-wrap gap-1.5">
                 {Object.entries(currentVars).map(([k, v]) => {
-                  let displayVal = String(v);
-                  if (v && typeof v === 'object') {
-                    displayVal = Array.isArray(v) ? `[Array(${v.length})]` : '{Object}';
-                  } else if (displayVal.length > 15) {
-                    displayVal = displayVal.slice(0, 15) + '...';
-                  }
-                  
+                  const displayVal = formatVarValue(v);
                   return (
-                    <span key={k} className="text-[12px] font-code-sm bg-surface px-2.5 py-1.5 rounded-lg border border-border-subtle flex gap-2 items-center shadow-sm">
-                      <span className="text-primary font-bold">{k}</span>
-                      <span className="text-on-surface-variant">=</span>
-                      <span className="text-on-surface font-bold">{displayVal}</span>
+                    <span key={k} className="text-[11px] font-code-sm bg-surface px-2 py-1 rounded border border-border-subtle flex gap-1.5 items-center shadow-xs max-w-full">
+                      <span className="text-primary font-bold shrink-0">{k}</span>
+                      <span className="text-on-surface-variant shrink-0">=</span>
+                      <span className="text-on-surface font-bold truncate max-w-[120px]">{displayVal}</span>
                     </span>
                   );
                 })}
@@ -293,13 +311,13 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
 
       {/* Math explanation */}
       {bigO?.explanation && (
-        <div className="mt-2">
-          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-2 font-bold">Why is it {bigO.time}?</div>
-          <div className="bg-surface-container rounded-xl p-4 border border-border-subtle">
+        <div className="mt-1 min-w-0">
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1.5 font-bold">Why is it {bigO.time}?</div>
+          <div className="bg-surface-container rounded-xl p-3.5 border border-border-subtle break-words">
             <p className="text-[12px] text-on-surface leading-relaxed">
               {bigO.explanation.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, i) => {
                 if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="text-on-surface">{part.slice(2, -2)}</strong>;
-                if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="bg-surface px-1.5 py-0.5 rounded text-primary font-code-sm text-[11px]">{part.slice(1, -1)}</code>;
+                if (part.startsWith('`') && part.endsWith('`')) return <code key={i} className="bg-surface px-1.5 py-0.5 rounded text-primary font-code-sm text-[11px] break-all">{part.slice(1, -1)}</code>;
                 return <span key={i}>{part}</span>;
               })}
             </p>
@@ -307,13 +325,13 @@ function StepMathPanel({ metrics, currentIndex, bigO, trace, onOpenWhiteboard })
         </div>
       )}
       {/* ── Open Whiteboard Button ── */}
-      <div className="mt-4 pb-4">
+      <div className="mt-3 pb-4">
         <button 
           onClick={onOpenWhiteboard}
-          className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 transition-colors py-3 rounded-xl border border-primary/20 shadow-sm"
+          className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 transition-colors py-2.5 rounded-xl border border-primary/20 shadow-xs"
         >
-          <span className="material-symbols-outlined text-[20px]">school</span>
-          <span className="font-bold text-label-caps uppercase tracking-wide">View Mathematical Derivation</span>
+          <span className="material-symbols-outlined text-[18px]">school</span>
+          <span className="font-bold text-[11px] uppercase tracking-wider">View Mathematical Derivation</span>
         </button>
       </div>
     </div>
@@ -340,68 +358,68 @@ export default function ComplexityView({ code, setCode, bigO, metrics, currentIn
   }
 
   return (
-    <div className="flex-1 flex gap-gutter overflow-hidden bg-surface-container-lowest" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="flex-1 flex flex-col lg:flex-row gap-gutter overflow-y-auto lg:overflow-hidden bg-surface-container-lowest min-w-0" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* ── Main Content: 3 columns (Code Editor | Math | Charts) ── */}
-      {/* LEFT: Code Editor (40%) */}
-      <div className="w-[40%] border border-border-subtle rounded-lg flex flex-col overflow-hidden shadow-sm">
-          <div className="bg-surface-container border-b border-border-subtle px-4 py-2 flex items-center justify-between shrink-0">
-            <span className="text-[11px] text-on-surface-variant uppercase tracking-widest font-bold">Source Code</span>
-            <span className="text-[11px] text-on-surface-variant">Editable • Line Heatmap active</span>
-          </div>
-          <div className="flex-1 min-h-0 bg-[#0d1117] flex flex-col">
-            <CodeEditor code={code} setCode={setCode} activeLine={currentLine} lineHits={lineHits} />
-          </div>
+      {/* LEFT: Code Editor (38%) */}
+      <div className="w-full lg:w-[38%] min-w-0 border border-border-subtle rounded-lg flex flex-col overflow-hidden shadow-sm h-[420px] lg:h-full shrink-0 lg:shrink">
+        <div className="bg-surface-container border-b border-border-subtle px-4 py-2 flex items-center justify-between shrink-0">
+          <span className="text-[11px] text-on-surface-variant uppercase tracking-widest font-bold">Source Code</span>
+          <span className="text-[11px] text-on-surface-variant">Editable • Line Heatmap active</span>
+        </div>
+        <div className="flex-1 min-h-0 bg-[#0d1117] flex flex-col">
+          <CodeEditor code={code} setCode={setCode} activeLine={currentLine} lineHits={lineHits} />
+        </div>
+      </div>
+
+      {/* CENTER: Step Math & Analysis (34%) */}
+      <div className="w-full lg:w-[34%] min-w-0 border border-border-subtle rounded-lg p-4 sm:p-5 overflow-y-auto bg-surface shadow-sm h-auto lg:h-full shrink-0 lg:shrink">
+        <StepMathPanel
+          metrics={metrics}
+          currentIndex={currentIndex}
+          bigO={bigO}
+          trace={trace}
+          onOpenWhiteboard={() => setIsWhiteboardOpen(true)}
+        />
+      </div>
+
+      {/* RIGHT: Charts (28%) */}
+      <div className="w-full lg:w-[28%] min-w-0 p-4 sm:p-5 overflow-y-auto flex flex-col gap-4 bg-surface border border-border-subtle rounded-lg shadow-sm h-auto lg:h-full shrink-0 lg:shrink">
+        <div className="text-[11px] text-on-surface-variant uppercase tracking-widest font-bold mb-1">
+          Live Charts — Click point to jump step
         </div>
 
-        {/* CENTER: Step Math & Analysis (25%) */}
-      <div className="w-[25%] border border-border-subtle rounded-lg p-5 overflow-y-auto bg-surface shadow-sm">
-          <StepMathPanel
-            metrics={metrics}
-            currentIndex={currentIndex}
-            bigO={bigO}
-            trace={trace}
-            onOpenWhiteboard={() => setIsWhiteboardOpen(true)}
-          />
-        </div>
+        <Chart
+          data={metrics?.operationSeries}
+          color="#10B981"
+          label="Operations (cumulative)"
+          currentIndex={currentIndex}
+          onStepHover={handleChartHover}
+          height={120}
+        />
+        <Chart
+          data={metrics?.heapSeries}
+          color="#8B5CF6"
+          label="Live Heap Objects"
+          currentIndex={currentIndex}
+          onStepHover={handleChartHover}
+          height={120}
+        />
+        <Chart
+          data={metrics?.stackSeries}
+          color="#F59E0B"
+          label="Call Stack Depth"
+          currentIndex={currentIndex}
+          onStepHover={handleChartHover}
+          height={120}
+        />
 
-        {/* RIGHT: Charts (35%) */}
-      <div className="w-[35%] p-5 overflow-y-auto flex flex-col gap-5 bg-surface border border-border-subtle rounded-lg shadow-sm">
-          <div className="text-[11px] text-on-surface-variant uppercase tracking-widest font-bold mb-1">
-            Live Charts — Click point to jump step
+        {/* Step counter at bottom */}
+        {total > 0 && (
+          <div className="flex items-center justify-between text-[11px] text-on-surface-variant border-t border-border-subtle pt-3 mt-auto">
+            <span>Step <strong className="text-on-surface monospaced-digits">{currentIndex + 1}</strong> of <strong className="text-on-surface monospaced-digits">{total}</strong></span>
           </div>
-
-          <Chart
-            data={metrics?.operationSeries}
-            color="#10B981"
-            label="Operations (cumulative)"
-            currentIndex={currentIndex}
-            onStepHover={handleChartHover}
-            height={130}
-          />
-          <Chart
-            data={metrics?.heapSeries}
-            color="#8B5CF6"
-            label="Live Heap Objects"
-            currentIndex={currentIndex}
-            onStepHover={handleChartHover}
-            height={130}
-          />
-          <Chart
-            data={metrics?.stackSeries}
-            color="#F59E0B"
-            label="Call Stack Depth"
-            currentIndex={currentIndex}
-            onStepHover={handleChartHover}
-            height={130}
-          />
-
-          {/* Step counter at bottom */}
-          {total > 0 && (
-            <div className="flex items-center justify-between text-[11px] text-on-surface-variant border-t border-border-subtle pt-3">
-              <span>Step <strong className="text-on-surface monospaced-digits">{currentIndex + 1}</strong> of <strong className="text-on-surface monospaced-digits">{total}</strong></span>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
       
       <WhiteboardModal 
         isOpen={isWhiteboardOpen} 
