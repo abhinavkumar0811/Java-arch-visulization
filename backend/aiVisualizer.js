@@ -112,7 +112,7 @@ async function callGeminiChat(modelName, apiKey, userPrompt) {
     headers: {
       'Content-Type': 'application/json',
     },
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(22000),
     body: JSON.stringify({
       system_instruction: {
         parts: [{ text: SYSTEM_PROMPT }]
@@ -188,8 +188,19 @@ CRITICAL INSTRUCTIONS:
       break; // Success
     } catch (err) {
       lastError = err;
-      if (err.status === 404 || err.status === 503 || err.status === 429 || (err.message && err.message.includes('not found'))) {
-        console.log(`Model ${model} not available (HTTP ${err.status}), trying next fallback...`);
+      const isTransient = (
+        err.name === 'TimeoutError' ||
+        err.status === 404 ||
+        err.status === 503 ||
+        err.status === 429 ||
+        (err.message && (
+          err.message.includes('not found') ||
+          err.message.includes('aborted') ||
+          err.message.includes('timeout')
+        ))
+      );
+      if (isTransient) {
+        console.log(`Model ${model} timed out or busy (${err.message}), trying next fallback...`);
         continue;
       }
       throw err; // Propagate non-transient errors (like 401 Unauthorized)
