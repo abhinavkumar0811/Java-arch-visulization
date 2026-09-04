@@ -9,3 +9,13 @@ yarn-error.log*
 pnpm-debug.log*
 *.class
 backend/Main.java
+
+# Strix security scanner artifacts
+strix-env/
+strix_runs/
+.source-aware/
+check_output.txt
+output.txt
+write_test.txt
+dir_check.py
+test_script.py

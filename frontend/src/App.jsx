@@ -16,7 +16,7 @@ import DryRunView from './features/dry-run/components/DryRunView.jsx';
 import { inferBigO, computeMetrics } from './utils/complexityAnalyzer.js';
 import { validateJavaCode } from './utils/languageDetector.js';
 import { EXAMPLES, DEFAULT_EXAMPLE } from './examples.js';
-import { API_BASE } from './config/api.js';
+import { API_BASE, authHeaders } from './config/api.js';
 
 export default function App() {
   // Memory State
@@ -87,7 +87,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/api/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ code })
       });
       const data = await res.json();

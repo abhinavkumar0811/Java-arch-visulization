@@ -1,0 +1,46 @@
+// JVM Security Policy for JVM Visualizer
+// Applied via: java -Djava.security.manager -Djava.security.policy==security.policy
+// This restricts user-submitted Java code from performing dangerous operations.
+
+grant codeBase "file:${java.home}/-" {
+    permission java.security.AllPermission;
+};
+
+grant codeBase "file:${app.home}/-" {
+    permission java.security.AllPermission;
+};
+
+// Minimal permissions for user-submitted code running via TraceGenerator
+grant {
+    // Allow reading standard system properties needed by JVM internals
+    permission java.util.PropertyPermission "java.version", "read";
+    permission java.util.PropertyPermission "java.vendor", "read";
+    permission java.util.PropertyPermission "java.vendor.url", "read";
+    permission java.util.PropertyPermission "java.class.version", "read";
+    permission java.util.PropertyPermission "os.name", "read";
+    permission java.util.PropertyPermission "os.version", "read";
+    permission java.util.PropertyPermission "os.arch", "read";
+    permission java.util.PropertyPermission "file.separator", "read";
+    permission java.util.PropertyPermission "path.separator", "read";
+    permission java.util.PropertyPermission "line.separator", "read";
+    permission java.util.PropertyPermission "user.language", "read";
+    permission java.util.PropertyPermission "file.encoding", "read";
+    permission java.util.PropertyPermission "sun.stdout.encoding", "read";
+    permission java.util.PropertyPermission "sun.stderr.encoding", "read";
+
+    // Allow stdout/stderr (needed for System.out.println, etc.)
+    permission java.io.FilePermission "<<ALL FILES>>", "read";
+
+    // Allow reading from the JVM home (for standard library classes)
+    permission java.io.FilePermission "${java.home}/-", "read";
+
+    // Allow reflection needed by standard library internals
+    permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+    permission java.lang.RuntimePermission "accessDeclaredMembers";
+    permission java.lang.RuntimePermission "accessClassInPackage.*";
+    permission java.lang.RuntimePermission "getClassLoader";
+    permission java.lang.RuntimePermission "createClassLoader";
+
+    // Deny everything else (no network, no exec, no write to filesystem,
+    // no environment variable access, no system exit)
+};
