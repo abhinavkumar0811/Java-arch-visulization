@@ -7,7 +7,7 @@ import VisualizerCanvas from './VisualizerCanvas.jsx';
 import CodeEditor from '../../../components/CodeEditor.jsx';
 import RateLimitPopup from './RateLimitPopup.jsx';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { API_BASE } from '../../../config/api.js';
+import { API_BASE, authHeaders } from '../../../config/api.js';
 import { validateJavaCode } from '../../../utils/languageDetector.js';
 import ExecutionErrorNotice from '../../../components/ExecutionErrorNotice.jsx';
 
@@ -308,7 +308,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
         
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           sourceCode: code
         }),
@@ -357,7 +357,7 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
     try {
       const res = await fetch(`${API_BASE}/api/dry-run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ sourceCode: code }),
       });
       const data = await res.json();

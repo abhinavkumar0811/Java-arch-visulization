@@ -11,9 +11,40 @@ const { generateCustomVisualizer } = require('./aiVisualizer');
 
 const app = express();
 
-// Guaranteed CORS headers on all requests and errors
+// --- SECURITY: CORS origin allowlist ---
+// Only permit requests from our known frontend origins.
+const ALLOWED_ORIGINS = [
+  'https://javaflow.vercel.app',
+  'https://jvm-visualizer.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, mobile apps)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin '${origin}' not allowed`));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// Fallback: ensure CORS headers are present even on error responses
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Expose-Headers', 'RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After');
@@ -23,14 +54,53 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After']
-}));
-app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
+
+// --- SECURITY: CSRF guard ---
+// Reject state-changing POST requests that don't come from the browser fetch API
+// (i.e., don't have Content-Type: application/json). This blocks cross-origin
+// form submissions (the primary CSRF attack vector) without requiring session state.
+app.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+      return res.status(415).json({ ok: false, message: 'Unsupported Media Type: Content-Type must be application/json' });
+    }
+  }
+  next();
+});
+
+// --- SECURITY: API Key Authentication ---
+// Protects all /api/* POST endpoints from unauthorized access.
+// The frontend must send: X-API-Key: <APP_API_KEY>
+// Health-check endpoints (GET /, /health, /healthz, /api/health) remain public.
+const PROTECTED_POST_PATHS = ['/api/execute', '/api/dry-run', '/api/ai-visualize', '/api/ai-visualize/regenerate'];
+const APP_API_KEY = process.env.APP_API_KEY;
+if (!APP_API_KEY) {
+  console.warn('[SECURITY WARNING] APP_API_KEY is not set in .env. All API endpoints are unauthenticated!');
+}
+
+app.use((req, res, next) => {
+  // Only enforce auth on protected POST endpoints
+  if (!PROTECTED_POST_PATHS.includes(req.path) || req.method !== 'POST') {
+    return next();
+  }
+  // Skip auth check if key is not configured (backward compat for local dev)
+  if (!APP_API_KEY) return next();
+
+  const providedKey = req.headers['x-api-key'] || '';
+  // Timing-safe comparison prevents timing attacks
+  const expected = Buffer.from(APP_API_KEY, 'utf8');
+  const provided = Buffer.from(providedKey, 'utf8');
+  const match = expected.length === provided.length &&
+    require('crypto').timingSafeEqual(expected, provided);
+
+  if (!match) {
+    return res.status(401).json({ ok: false, message: 'Unauthorized: Invalid or missing API key.' });
+  }
+  next();
+});
+
 
 // 1. Global limit for general endpoints (health checks, etc)
 const globalLimiter = rateLimit({
@@ -95,7 +165,10 @@ app.post('/api/execute', executionLimiter, (req, res) => {
 
   const runTrace = () => {
     // 1. Run TraceGenerator in serverless mode (compiles, extracts bytecode, and traces in a single JVM)
-    exec(`java TraceGenerator --serverless Main`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
+    // --- SECURITY NOTE ---
+    // Java SecurityManager was removed in Java 21. Primary sandbox isolation
+    // is now provided by Docker --security-opt no-new-privileges + seccomp (see Dockerfile).
+    exec(`java TraceGenerator --serverless Main`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50, timeout: 30000 }, (err, stdout, stderr) => {
       let trace = null;
       let bytecode = "Failed to extract bytecode.";
       let salvageWarning = '';
@@ -152,8 +225,22 @@ app.post('/api/dry-run', executionLimiter, (req, res) => {
   
   // Extract class name containing main method, default to Main
   const mainMatch = sourceCode.match(/class\s+(\w+)[^{]*\{[\s\S]*?public\s+static\s+void\s+main/);
-  const mainClassName = mainMatch ? mainMatch[1] : 'Main';
-  
+  const rawClassName = mainMatch ? mainMatch[1] : 'Main';
+
+  // --- SECURITY: Path Traversal Fix ---
+  // Strictly validate the class name: must start with uppercase letter,
+  // contain only valid Java identifier characters, and be <= 64 chars.
+  // This prevents path traversal attacks like '../../etc/passwd'.
+  const CLASSNAME_REGEX = /^[A-Z][a-zA-Z0-9_]{0,63}$/;
+  if (!CLASSNAME_REGEX.test(rawClassName)) {
+    return res.status(400).json({
+      ok: false,
+      type: 'input_error',
+      message: `Invalid class name '${rawClassName}'. Class names must start with an uppercase letter and contain only letters, digits, or underscores.`,
+    });
+  }
+  const mainClassName = rawClassName;
+
   const javaFile = path.join(tempDir, `${mainClassName}.java`);
   const universalImports = "import java.util.*; import java.io.*; import java.math.*; import java.time.*;\n";
   const finalCode = universalImports + sourceCode;
@@ -161,7 +248,10 @@ app.post('/api/dry-run', executionLimiter, (req, res) => {
   fs.writeFileSync(javaFile, finalCode);
 
   const runDryRun = () => {
-    exec(`java TraceGenerator --serverless ${mainClassName}`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
+    // --- SECURITY NOTE ---
+    // Java SecurityManager was removed in Java 21. Primary sandbox isolation
+    // is now provided by Docker --security-opt no-new-privileges + seccomp (see Dockerfile).
+    exec(`java TraceGenerator --serverless ${mainClassName}`, { cwd: tempDir, maxBuffer: 1024 * 1024 * 50, timeout: 30000 }, (err, stdout, stderr) => {
       let rawTrace = null;
       let bytecode = '';
 

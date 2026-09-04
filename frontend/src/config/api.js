@@ -9,3 +9,13 @@ export const API_BASE = (
     ? import.meta.env.VITE_API_BASE
     : AWS_LIVE_BACKEND_URL
 ).replace(/\/$/, '');
+
+// API key sent as X-API-Key header on all protected POST requests.
+// Set VITE_APP_API_KEY in frontend/.env to match APP_API_KEY in backend/.env
+export const APP_API_KEY = import.meta.env.VITE_APP_API_KEY || '';
+
+// Convenience helper: returns headers object for authenticated POST requests
+export const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(APP_API_KEY ? { 'X-API-Key': APP_API_KEY } : {}),
+});
