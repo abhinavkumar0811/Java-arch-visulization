@@ -9,6 +9,7 @@ import ConsoleView from './components/ConsoleView.jsx';
 import TutorView from './components/TutorView.jsx';
 import BytecodeView from './components/BytecodeView.jsx';
 import InfoModal from './components/InfoModal.jsx';
+import AboutModal from './components/AboutModal.jsx';
 import ComplexityView from './components/ComplexityView.jsx';
 import MobileNotice from './components/MobileNotice.jsx';
 import ExecutionErrorNotice from './components/ExecutionErrorNotice.jsx';
@@ -57,6 +58,7 @@ export default function App() {
   const [speed, setSpeed] = useState(1200);
   const [error, setError] = useState(null);
   const [infoModal, setInfoModal] = useState(null);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const timerRef = useRef(null);
@@ -223,9 +225,9 @@ export default function App() {
       <nav className="flex justify-between items-center w-full px-3 sm:px-5 h-14 z-50 bg-surface border-b border-border-subtle shrink-0 gap-2">
         {/* LEFT: Logo + Example Selector */}
         <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
-          <div className="flex items-center">
+          <button onClick={() => setIsAboutModalOpen(true)} className="flex items-center outline-none hover:opacity-80 transition-opacity" title="About JavaFlow">
             <img src="/logo-full.png" alt="JavaFlow Logo" className="h-8 sm:h-9 w-auto object-contain" />
-          </div>
+          </button>
           {activeView !== 'dry-run' && (
             <select 
               className="bg-surface-container text-on-surface border border-border-subtle px-2.5 py-1 rounded-lg text-[12px] outline-none cursor-pointer hover:border-outline transition-colors shrink-0"
@@ -394,6 +396,7 @@ export default function App() {
       </main>
       
       <InfoModal type={infoModal} onClose={() => setInfoModal(null)} />
+      <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
       <MobileNotice />
 
       {/* View Switch Prompt Modal */}
