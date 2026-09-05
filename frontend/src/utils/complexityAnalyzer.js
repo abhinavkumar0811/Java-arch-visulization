@@ -94,16 +94,21 @@ export function inferBigO(code) {
     time = 'O(n!)';
     space = 'O(n)';
     explanation = `The \`${recursion.name}\` method calls itself recursively **inside a loop**. This creates a branching factor that grows factorially or exponentially with the input size (like generating permutations). This leads to **O(n!) time** or **O(nⁿ) time**. Space is **O(n)** because the call stack depth grows linearly with the input.`;
+  } else if (recursion.isRecursive && recursion.isBranching && divideConquer) {
+    // e.g. Merge Sort, Quick Sort
+    time = 'O(n log n)';
+    space = 'O(n)';
+    explanation = `The \`${recursion.name}\` method uses **divide-and-conquer recursion**, splitting the problem and branching recursively (e.g., Merge Sort). This gives **O(n log n) time** (n elements × log n levels). Space is often **O(n)** for auxiliary arrays or **O(log n)** for the recursive call stack.`;
   } else if (recursion.isRecursive && recursion.isBranching) {
     // e.g. fibonacci without memoization
     time = 'O(2ⁿ)';
     space = 'O(n)';
-    explanation = `The \`${recursion.name}\` method calls itself **twice** per invocation, creating a binary recursion tree. This leads to **exponential time O(2ⁿ)** — the number of operations doubles with each increase in input. Stack space is **O(n)** since max call stack depth equals the input size.`;
+    explanation = `The \`${recursion.name}\` method calls itself **twice** per invocation without dividing the problem space logarithmically. This creates a binary recursion tree, leading to **exponential time O(2ⁿ)**. Stack space is **O(n)**.`;
   } else if (recursion.isRecursive && divideConquer) {
-    // e.g. merge sort, binary search
-    time = 'O(n log n)';
+    // e.g. Binary Search
+    time = 'O(log n)';
     space = 'O(log n)';
-    explanation = `The code uses **divide-and-conquer recursion** — splitting the problem in half each time. This gives **O(n log n) time** (n elements × log n levels) and **O(log n) space** for the recursive call stack.`;
+    explanation = `The \`${recursion.name}\` method uses **divide-and-conquer recursion** but only makes a single recursive call per level (e.g., Binary Search). This gives **O(log n) time**. Space is **O(log n)** for the recursive call stack.`;
   } else if (recursion.isRecursive) {
     // e.g. factorial — linear recursion
     time = 'O(n)';
