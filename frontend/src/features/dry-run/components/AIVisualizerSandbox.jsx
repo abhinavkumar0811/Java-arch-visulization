@@ -71,19 +71,6 @@ export default function AIVisualizerSandbox({
       </style>
     `;
 
-    // --- SECURITY: DOMPurify sanitization (defense-in-depth) ---
-    // The iframe sandbox is the primary XSS defense. DOMPurify adds an
-    // additional layer by stripping dangerous patterns from AI-generated HTML.
-    // We allow <script> and <style> since the visualization requires them,
-    // but DOMPurify still strips dangerous event handlers and data: URIs.
-    const sanitizedHtml = DOMPurify.sanitize(htmlContent, {
-      WHOLE_DOCUMENT: true,
-      FORCE_BODY: false,
-      ADD_TAGS: ['script', 'style', 'link'],
-      ADD_ATTR: ['onclick', 'onload', 'oninput', 'onchange', 'target', 'crossorigin'],
-      ALLOW_UNKNOWN_PROTOCOLS: false,
-    });
-
     return `
       <!DOCTYPE html>
       <html>
@@ -94,7 +81,7 @@ export default function AIVisualizerSandbox({
           ${bridgeScript}
         </head>
         <body>
-          ${sanitizedHtml}
+          ${htmlContent}
         </body>
       </html>
     `;
@@ -102,13 +89,12 @@ export default function AIVisualizerSandbox({
 
   // Handle message from iframe
   // --- SECURITY: postMessage origin validation ---
-  // srcdoc iframes always have origin === 'null' by browser spec.
+  // srcdoc iframes without allow-same-origin always have origin === 'null'.
   // We only accept SANDBOX_READY from null-origin (our own srcdoc iframe).
   useEffect(() => {
     const handleMessage = (e) => {
       // Only accept messages from our own srcdoc iframe (origin is 'null')
-      // or same-origin messages. Reject anything from external origins.
-      const isSrcdocOrigin = e.origin === 'null' || e.origin === window.location.origin;
+      const isSrcdocOrigin = e.origin === 'null';
       if (!isSrcdocOrigin) return;
 
       // Only process if source is our iframe element
@@ -156,7 +142,7 @@ export default function AIVisualizerSandbox({
         ref={iframeRef}
         srcDoc={wrappedHtml}
         title="AI Dynamic Visualizer"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts"
         className="w-full h-full border-0 bg-[#0d1117]"
         onLoad={() => {
           setIsLoaded(true);
