@@ -1,0 +1,58 @@
+name: Bug Report
+description: File a bug report to help us improve JavaFlow
+title: "[BUG] "
+labels: ["bug", "triage"]
+assignees:
+  - abhinavkumar0811
+  - iamavinashmourya
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! 🐛
+  - type: input
+    id: contact
+    attributes:
+      label: Contact Details
+      description: How can we get in touch with you if we need more info?
+      placeholder: ex. email@example.com
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this bug? Please provide the exact Java code you pasted into the editor.
+      placeholder: |
+        1. Go to '...'
+        2. Paste this code '...'
+        3. Click on '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: java-code
+    attributes:
+      label: Java Code (Optional)
+      description: Please paste the Java code that caused the issue, if applicable.
+      render: java
+    validations:
+      required: false
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you running JavaFlow on?
+      options:
+        - JavaFlow Website (javaflow.vercel.app)
+        - Local Development (localhost)
+    validations:
+      required: true

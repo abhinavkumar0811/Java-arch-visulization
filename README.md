@@ -2,6 +2,15 @@
   <img src="frontend/public/logo-full.png" alt="JavaFlow Logo" height="80" />
   <p><b>Step-by-Step JVM Execution Engine & Dynamic Algorithm Visualizer</b></p>
   <p>JavaFlow is an interactive <strong>Java Memory Management</strong> and <strong>DSA Visualizer</strong>. Write Java code, execute a <strong>dry run</strong>, and automatically generate diagrams to understand <strong>Time Complexity</strong>, Call Stacks, Heap Objects, and Data Structures.</p>
+  
+  <p>
+    <a href="https://github.com/abhinavkumar0811/Java-arch-visulization/issues"><img src="https://img.shields.io/github/issues/abhinavkumar0811/Java-arch-visulization?style=flat-square" alt="Issues" /></a>
+    <a href="https://github.com/abhinavkumar0811/Java-arch-visulization/pulls"><img src="https://img.shields.io/github/issues-pr/abhinavkumar0811/Java-arch-visulization?style=flat-square" alt="Pull Requests" /></a>
+    <a href="https://github.com/abhinavkumar0811/Java-arch-visulization/blob/main/LICENSE"><img src="https://img.shields.io/github/license/abhinavkumar0811/Java-arch-visulization?style=flat-square" alt="License" /></a>
+    <a href="https://github.com/abhinavkumar0811/Java-arch-visulization/stargazers"><img src="https://img.shields.io/github/stars/abhinavkumar0811/Java-arch-visulization?style=flat-square" alt="Stars" /></a>
+    <a href="https://github.com/abhinavkumar0811/Java-arch-visulization/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="PRs Welcome" /></a>
+  </p>
+
   <br />
   <img src="frontend/public/banner_quality.png" alt="JavaFlow Application Banner" width="100%" />
 </div>
