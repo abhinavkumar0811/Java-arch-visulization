@@ -2,6 +2,8 @@
   <img src="frontend/public/logo-full.png" alt="JavaFlow Logo" height="80" />
   <p><b>Step-by-Step JVM Execution Engine & Dynamic Algorithm Visualizer</b></p>
   <p>JavaFlow is an interactive <strong>Java Memory Management</strong> and <strong>DSA Visualizer</strong>. Write Java code, execute a <strong>dry run</strong>, and automatically generate diagrams to understand <strong>Time Complexity</strong>, Call Stacks, Heap Objects, and Data Structures.</p>
+  <br />
+  <img src="frontend/public/banner_quality.png" alt="JavaFlow Application Banner" width="100%" />
 </div>
 
 ---
