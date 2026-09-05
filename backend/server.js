@@ -11,6 +11,9 @@ const { generateCustomVisualizer } = require('./aiVisualizer');
 
 const app = express();
 
+// Trust the AWS Application Load Balancer (ALB) proxy so express-rate-limit doesn't crash on X-Forwarded-For headers
+app.set('trust proxy', 1);
+
 // --- SECURITY: CORS origin allowlist ---
 // Only permit requests from our known frontend origins.
 const ALLOWED_ORIGINS = [
