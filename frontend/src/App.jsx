@@ -276,6 +276,16 @@ export default function App() {
         
         {/* RIGHT: Speed + View Switcher + Reset + Run */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <a 
+            href="https://github.com/abhinavkumar0811/Java-arch-visulization/issues/new?template=bug_report.yml" 
+            target="_blank" 
+            rel="noreferrer"
+            className="hidden md:flex items-center gap-1 text-on-surface-variant hover:text-on-surface text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded hover:bg-surface-container transition-colors"
+            title="Report a bug or suggest a feature on GitHub"
+          >
+            <span className="material-symbols-outlined text-[14px]">bug_report</span>
+            Report Bug
+          </a>
           {activeView !== 'dry-run' && (
             <div className="hidden lg:flex items-center gap-1.5 bg-surface-container px-2 py-1 rounded-lg border border-border-subtle shrink-0" title="Playback Speed">
               <span className="material-symbols-outlined text-[15px] text-on-surface-variant">speed</span>
