@@ -301,6 +301,15 @@ export default function DryRunView({ initialCode = '', forceSyncCode = null, set
   const handleGenerateAi = useCallback(async (traceDataToUse, isRegenerate = false) => {
     setIsGeneratingAi(true);
     setError(null);
+    
+    // Check if the user entered non-Java code before calling AI backend
+    const langCheck = validateJavaCode(code);
+    if (!langCheck.isSupported) {
+      setError(langCheck.message);
+      setIsGeneratingAi(false);
+      return false;
+    }
+
     try {
       const endpoint = isRegenerate
         ? `${API_BASE}/api/ai-visualize/regenerate` 

@@ -25,35 +25,30 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ];
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl, mobile apps)
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: Origin '${origin}' not allowed`));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
-  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After'],
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// Fallback: ensure CORS headers are present even on error responses
+// Custom CORS Middleware to handle all CORS and Preflight logic
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  
+  // Set Allow-Origin
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    // For non-browser clients (curl) or mismatched origins, we don't set Origin
+    // but we can default to '*' if you want, or just omit it.
+    res.header('Access-Control-Allow-Origin', '*'); 
   }
+
+  // Set other CORS headers
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-API-Key');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-API-Key, Origin, Accept');
   res.header('Access-Control-Expose-Headers', 'RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+
+  // Preflight request (OPTIONS)
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
+    return res.status(204).end();
   }
+
   next();
 });
 

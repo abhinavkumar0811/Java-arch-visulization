@@ -83,6 +83,14 @@ export default function MobileNotice() {
         <p className="text-[11px] text-on-surface-variant/70 mt-4">
           Send or open this link on your computer to view the visualizer.
         </p>
+        
+        {/* Bypass Button */}
+        <button
+          onClick={() => setIsMobile(false)}
+          className="mt-6 text-[12px] font-medium text-on-surface-variant hover:text-white underline decoration-on-surface-variant/30 hover:decoration-white/50 transition-colors bg-transparent border-none cursor-pointer"
+        >
+          Continue anyway (Not Recommended)
+        </button>
       </div>
     </div>
   );

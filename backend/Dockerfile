@@ -15,13 +15,6 @@ COPY . .
 # Compile TraceGenerator with container's OpenJDK
 RUN javac -g TraceGenerator.java
 
-# SECURITY: Create and switch to a non-root user.
-# Running as root means container breakout = host compromise.
-RUN groupadd --gid 1001 appuser && \
-    useradd --uid 1001 --gid appuser --shell /bin/sh --create-home appuser && \
-    chown -R appuser:appuser /app
-USER appuser
-
 # SECURITY NOTE: Java SecurityManager was removed in Java 21.
 # The Docker run command must include these flags for process-level isolation:
 #

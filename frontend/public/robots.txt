@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://javaflow.vercel.app/sitemap.xml

@@ -2,6 +2,7 @@
   "name": "jvm-visualizer-backend",
   "version": "1.0.0",
   "description": "Java-subset interpreter that emits a step-by-step JVM execution trace (Method Area, Heap, Stack, Threads).",
+  "keywords": ["java", "memory-management", "time-complexity", "dsa", "visualizer", "dry-run", "algorithm", "jvm"],
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

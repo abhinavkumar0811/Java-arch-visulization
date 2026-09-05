@@ -1,6 +1,8 @@
 {
   "name": "jvm-visualizer-frontend",
   "version": "1.0.0",
+  "description": "Java architecture visualizer, dry run tool, time complexity analyzer, memory management and DSA learning platform.",
+  "keywords": ["java", "memory-management", "time-complexity", "dsa", "visualizer", "dry-run", "algorithm", "jvm"],
   "private": true,
   "type": "module",
   "scripts": {
