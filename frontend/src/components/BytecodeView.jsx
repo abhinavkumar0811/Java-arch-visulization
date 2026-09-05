@@ -9,6 +9,11 @@ export default function BytecodeView({ bytecode }) {
         language="java"
         theme="vs-dark"
         value={bytecode || "No bytecode generated yet. Run the code first."}
+        onMount={(editor, monaco) => {
+          document.fonts.ready.then(() => {
+            monaco.editor.remeasureFonts();
+          });
+        }}
         options={{
           readOnly: true,
           minimap: { enabled: false },

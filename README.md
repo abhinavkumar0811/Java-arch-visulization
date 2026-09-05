@@ -130,7 +130,15 @@ The AI engine uses an extensive system prompt enforcing strict structural and ae
 
 ## Security & Rate Limiting System
 
-To defend backend execution resources and manage Gemini API operational costs, JavaFlow implements IP-based rate limiting via `express-rate-limit`.
+To defend backend execution resources and manage Gemini API operational costs, JavaFlow implements IP-based rate limiting via `express-rate-limit`, strict API authentication, and Docker-level sandboxing.
+
+### Secure JVM Execution (Docker Sandbox)
+User-submitted Java code is executed inside an ephemeral, unprivileged Docker container. We utilize a strict `seccomp` (Secure Computing Mode) profile and drop all Linux capabilities (`--cap-drop ALL`) to ensure total isolation and prevent Remote Code Execution (RCE) or path traversal attacks, superseding the deprecated Java SecurityManager.
+
+### API Authentication & Frontend Security
+- **API Key Verification:** All execution and AI endpoints require a cryptographic `X-API-Key` header matched via constant-time comparison to prevent timing attacks.
+- **Content Security Policy (CSP):** The frontend enforces a strict CSP to mitigate Cross-Site Scripting (XSS).
+- **Isolated AI Iframe:** The AI Visualizer executes inside a strict `'null'` origin iframe sandbox without `allow-same-origin`, preventing AI-generated code from interacting with the main application.
 
 ### Network-Level IP Tracking
 
@@ -189,7 +197,7 @@ The UI uses `react-resizable-panels` to allow customizable view configurations:
 ### Prerequisites
 
 - **Node.js**: `v16.0.0` or higher
-- **Java Development Kit (JDK)**: JDK 11 or higher (`javac` and `java` must be in `PATH`)
+- **Docker**: Required for secure JVM sandboxing execution
 - **Google Gemini API Key**: Required for AI visualization features
 
 ### 1. Environment Setup
@@ -199,6 +207,14 @@ Create a `.env` file inside `backend/`:
 ```env
 PORT=4000
 GEMINI_API_KEY=your_gemini_api_key_here
+APP_API_KEY=your_secret_api_key_here
+```
+
+Create a `.env` file inside `frontend/`:
+
+```env
+VITE_API_URL=http://localhost:4000
+VITE_APP_API_KEY=your_secret_api_key_here
 ```
 
 ### 2. Backend Installation & Run

@@ -10,6 +10,11 @@ export default function CodeEditor({ code, setCode, activeLine, lineHits }) {
   function handleEditorDidMount(editor, monaco) {
     editorRef.current = editor;
     
+    // Fix cursor misalignment: Monaco needs to remeasure char widths after custom web fonts load
+    document.fonts.ready.then(() => {
+      monaco.editor.remeasureFonts();
+    });
+    
     monaco.editor.defineTheme('jvm-theme', {
       base: 'vs-dark',
       inherit: true,
